@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Analysis } from './components/Analysis';
 import { BomEditor } from './components/BomEditor';
 import { IssueList } from './components/common';
+import { ConfirmButton } from './components/ConfirmButton';
 import { ItemsEditor } from './components/ItemsEditor';
 import { MpsEditor } from './components/MpsEditor';
 import { MrpTables } from './components/MrpTables';
@@ -9,8 +10,9 @@ import { OrderPlan } from './components/OrderPlan';
 import { ProductStructure } from './components/ProductStructure';
 import { Purchases } from './components/Purchases';
 import { Report } from './components/Report';
+import { ScenarioTransfer, type TransferMode } from './components/ScenarioTransfer';
 import { runMrp } from './domain/mrpEngine';
-import { downloadScenario, parseScenario } from './state/scenarioIO';
+import { IS_ARTIFACT } from './env';
 import { useScenario } from './state/useScenario';
 
 const TABS = [
@@ -44,7 +46,8 @@ export default function App() {
   const result = useMemo(() => runMrp(scenario), [scenario]);
   const [tab, setTab] = useState<TabId>(initialTab);
   const [printPending, setPrintPending] = useState(false);
-  const fileInput = useRef<HTMLInputElement>(null);
+  const [transfer, setTransfer] = useState<TransferMode | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -65,14 +68,6 @@ export default function App() {
 
   const blocked = result.issues.some((i) => i.severity === 'error');
   const lateCount = result.alerts.filter((a) => a.severity === 'error').length;
-
-  const importFile = async (file: File) => {
-    try {
-      dispatch({ type: 'load', scenario: parseScenario(JSON.parse(await file.text())) });
-    } catch (e) {
-      window.alert(`No se pudo importar el archivo: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  };
 
   const renderTab = () => {
     if (tab === 'pmp') return <MpsEditor scenario={scenario} dispatch={dispatch} />;
@@ -124,45 +119,45 @@ export default function App() {
               onChange={(e) => dispatch({ type: 'setName', name: e.currentTarget.value })}
             />
           </label>
-          <button
-            type="button"
+          <ConfirmButton
             className="btn btn-ghost"
-            onClick={() => {
-              if (window.confirm('¿Restaurar los datos del ejercicio? Se pierden los cambios no exportados.')) {
-                dispatch({ type: 'reset' });
-              }
-            }}
-          >
-            Restaurar ejercicio
-          </button>
-          <button type="button" className="btn btn-ghost" onClick={() => downloadScenario(scenario)}>
-            Exportar
-          </button>
-          <button type="button" className="btn btn-ghost" onClick={() => fileInput.current?.click()}>
-            Importar
-          </button>
-          <input
-            ref={fileInput}
-            type="file"
-            accept="application/json,.json"
-            hidden
-            onChange={(e) => {
-              const file = e.currentTarget.files?.[0];
-              if (file) void importFile(file);
-              e.currentTarget.value = '';
+            label="Restaurar ejercicio"
+            question="¿Volver a los datos de la consigna? Se pierden los cambios no exportados."
+            confirmLabel="Restaurar"
+            onConfirm={() => {
+              dispatch({ type: 'reset' });
+              setNotice('Se restauraron los datos del ejercicio.');
             }}
           />
           <button
             type="button"
-            className="btn"
-            disabled={blocked}
-            onClick={() => {
-              setTab('informe');
-              setPrintPending(true);
-            }}
+            className="btn btn-ghost"
+            aria-pressed={transfer === 'export'}
+            onClick={() => setTransfer(transfer === 'export' ? null : 'export')}
           >
-            Imprimir / PDF
+            Exportar
           </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            aria-pressed={transfer === 'import'}
+            onClick={() => setTransfer(transfer === 'import' ? null : 'import')}
+          >
+            Importar
+          </button>
+          {!IS_ARTIFACT && (
+            <button
+              type="button"
+              className="btn"
+              disabled={blocked}
+              onClick={() => {
+                setTab('informe');
+                setPrintPending(true);
+              }}
+            >
+              Imprimir / PDF
+            </button>
+          )}
         </div>
       </header>
 
@@ -187,6 +182,27 @@ export default function App() {
       </nav>
 
       <main className="content">
+        {notice && (
+          <p className="notice no-print" role="status">
+            {notice}
+            <button type="button" className="link-btn" onClick={() => setNotice(null)}>
+              Cerrar
+            </button>
+          </p>
+        )}
+        {transfer && (
+          <ScenarioTransfer
+            key={transfer}
+            mode={transfer}
+            scenario={scenario}
+            onClose={() => setTransfer(null)}
+            onImport={(s) => {
+              dispatch({ type: 'load', scenario: s });
+              setTransfer(null);
+              setNotice(`Se importó el escenario "${s.name}".`);
+            }}
+          />
+        )}
         {INPUT_TABS.includes(tab) && result.issues.length > 0 && (
           <div className="no-print">
             <IssueList issues={result.issues} />

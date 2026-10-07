@@ -22,15 +22,20 @@ npm install
 npm run dev        # abre la app en http://localhost:5173
 npm test           # tests del motor MRP
 npm run build      # genera la versión estática en dist/
+npm run build:artifact  # genera dist-artifact/sistema-mrp.html, un único archivo para publicar en claude.ai
 ```
 
 La app arranca con los datos del ejercicio. Los cambios se guardan automáticamente en el navegador.
 Desde la barra superior se puede:
 
-- **Restaurar ejercicio:** vuelve a los datos de la consigna.
-- **Exportar / Importar:** guarda o carga un escenario en un archivo `.json`, para comparar variantes.
+- **Restaurar ejercicio:** vuelve a los datos de la consigna, previa confirmación.
+- **Exportar:** muestra el escenario en formato JSON para copiarlo o descargarlo como `.json`.
+- **Importar:** carga un escenario desde un archivo `.json` o desde el texto pegado.
 - **Imprimir / PDF:** abre el informe completo y el diálogo de impresión. Para obtener el PDF, elegí
   "Guardar como PDF".
+
+La versión publicada en claude.ai no tiene "Imprimir / PDF" ni "Descargar .json", porque ese visor no
+permite imprimir ni descargar archivos. Para el PDF hay que usar la app local o la de GitHub Pages.
 
 ### Pantallas
 

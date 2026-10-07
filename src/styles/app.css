@@ -137,7 +137,7 @@ h3 {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   position: sticky;
-  top: 0;
+  top: env(safe-area-inset-top, 0px);
   z-index: 5;
 }
 
@@ -282,6 +282,18 @@ h3 {
   filter: brightness(1.12);
 }
 
+.btn:focus-visible,
+.tab:focus-visible,
+.link-btn:focus-visible,
+.icon-btn:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
+}
+
+.app-header .btn:focus-visible {
+  outline-color: #fff;
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -375,6 +387,103 @@ select:focus {
   gap: 8px;
   font-size: 0.88rem;
   color: var(--muted);
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 0.82rem;
+}
+
+.btn-danger {
+  background: var(--late);
+  color: #fff;
+}
+
+.btn-plain {
+  background: var(--surface);
+  color: var(--navy);
+  border-color: var(--border-strong);
+}
+
+.app-header .btn.btn-danger {
+  background: #fff;
+  color: var(--late);
+}
+
+.app-header .btn.btn-plain {
+  background: transparent;
+  color: #fff;
+  border-color: rgb(255 255 255 / 55%);
+}
+
+.confirm-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.confirm-question {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.grid-table .confirm-inline {
+  max-width: 150px;
+}
+
+.grid-table .confirm-question {
+  flex-basis: 100%;
+  white-space: normal;
+}
+
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border-left: 4px solid var(--ok);
+  background: var(--ok-soft);
+  font-size: 0.9rem;
+}
+
+.transfer-body {
+  display: grid;
+  gap: 10px;
+}
+
+.json-area {
+  width: 100%;
+  font: 0.82rem/1.4 ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #fbfaf8;
+  color: var(--text);
+  resize: vertical;
+}
+
+.transfer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.file-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.transfer .issue {
+  margin: 0;
 }
 
 /* ---------- Tables ---------- */

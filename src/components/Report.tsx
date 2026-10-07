@@ -1,6 +1,7 @@
 import { endItems, resolveItemType, usableBomLines } from '../domain/bom';
 import { describeLotPolicy } from '../domain/lotSizing';
 import type { MrpResult, Scenario } from '../domain/types';
+import { IS_ARTIFACT } from '../env';
 import { Analysis } from './Analysis';
 import { IssueList, Section, TYPE_LABEL, fmt, weekNumbers } from './common';
 import { MrpLegend, MrpTable, RequirementsSummaryTable } from './MrpTables';
@@ -106,6 +107,13 @@ export function Report({ scenario, result }: { scenario: Scenario; result: MrpRe
           {result.orders.length} órdenes planificadas
         </p>
       </header>
+
+      {IS_ARTIFACT && (
+        <p className="note no-print">
+          Para guardar este informe en PDF, abrí la app en tu computadora (<code>npm run dev</code>) o en GitHub
+          Pages y usá el botón “Imprimir / PDF”. El visor de claude.ai no permite imprimir.
+        </p>
+      )}
 
       {result.issues.length > 0 && (
         <Section title="Observaciones sobre los datos">

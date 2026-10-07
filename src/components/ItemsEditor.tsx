@@ -3,6 +3,7 @@ import { endItems, resolveItemType, usableBomLines } from '../domain/bom';
 import type { Item, ItemTypeSetting, Scenario } from '../domain/types';
 import type { ScenarioAction, WeekField } from '../state/useScenario';
 import { NumberInput, Section, TYPE_LABEL, fmt, weekNumbers } from './common';
+import { ConfirmButton } from './ConfirmButton';
 
 function CodeInput({
   code,
@@ -213,19 +214,15 @@ export function ItemsEditor({
                       </button>
                     </td>
                     <td>
-                      <button
-                        type="button"
+                      <ConfirmButton
                         className="icon-btn"
+                        label="✕"
                         title={`Eliminar ${item.code}`}
-                        aria-label={`Eliminar ${item.code}`}
-                        onClick={() => {
-                          if (window.confirm(`¿Eliminar el ítem ${item.code} y sus relaciones en la BOM?`)) {
-                            dispatch({ type: 'removeItem', code: item.code });
-                          }
-                        }}
-                      >
-                        ✕
-                      </button>
+                        ariaLabel={`Eliminar ${item.code}`}
+                        question={`¿Eliminar ${item.code} y su BOM?`}
+                        confirmLabel="Eliminar"
+                        onConfirm={() => dispatch({ type: 'removeItem', code: item.code })}
+                      />
                     </td>
                   </tr>
                   {open && (
