@@ -891,6 +891,20 @@ select:focus {
     width: 150px;
   }
 
+  .tabs,
+  .tab-group {
+    flex-wrap: nowrap;
+  }
+
+  .tabs {
+    overflow-x: auto;
+    gap: 16px;
+  }
+
+  .tab {
+    white-space: nowrap;
+  }
+
   .section {
     padding: 14px;
   }
