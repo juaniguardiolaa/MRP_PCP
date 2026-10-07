@@ -1,0 +1,102 @@
+@page {
+  size: A4 landscape;
+  margin: 10mm;
+}
+
+@media print {
+  :root {
+    font-size: 11px;
+    background: #fff;
+  }
+
+  body,
+  .app {
+    background: #fff;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print,
+  .section-actions,
+  .tab-badge {
+    display: none !important;
+  }
+
+  .content {
+    max-width: none;
+    padding: 0;
+  }
+
+  .section,
+  .report-cover,
+  .card {
+    box-shadow: none;
+  }
+
+  .section {
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+
+  .table-scroll {
+    overflow: visible;
+  }
+
+  .report-part + .report-part {
+    break-before: page;
+  }
+
+  .report-cover {
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+
+  /* Los árboles de producto se achican para entrar lado a lado. */
+  .tree-grid {
+    flex-wrap: nowrap;
+  }
+
+  .tree-card {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .tree-svg {
+    width: 100%;
+    height: auto;
+    max-height: 70mm;
+  }
+
+  .grid-table th,
+  .grid-table td {
+    padding: 2px 6px;
+  }
+
+  .section-keep,
+  .mrp-table,
+  .tree-card,
+  .gantt-row,
+  .grid-table tr,
+  .conclusions {
+    break-inside: avoid;
+  }
+
+  .section-header {
+    break-after: avoid;
+  }
+
+  .mrp-list {
+    gap: 8px;
+  }
+
+  .sticky-col {
+    position: static;
+  }
+
+  .gantt {
+    min-width: 0 !important;
+  }
+}
