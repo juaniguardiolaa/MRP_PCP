@@ -58,6 +58,10 @@ describe('reportes del ejercicio', () => {
       ['A', 4],
       ['B', 7],
     ]);
+    expect(analysis.conclusions[0]).toBe(
+      'Primeras órdenes de compra de materias primas: I en S0 (antes del horizonte), atrasada ' +
+        '(10 u.; su primera orden a tiempo es en S3); D en S1 (100 u.); E en S1 (50 u.); F en S2 (100 u.).',
+    );
     expect(analysis.conclusions.some((c) => c.includes('riesgo de insatisfacción'))).toBe(true);
   });
 });

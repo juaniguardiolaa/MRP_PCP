@@ -133,10 +133,18 @@ export function feasibilityAnalysis(scenario: Scenario, result: MrpResult): Feas
 
   const conclusions: string[] = [];
   if (firstPurchaseWeek !== null) {
-    conclusions.push(
-      `La primera orden de compra de materias primas debe emitirse en ${weekLabel(firstPurchaseWeek)} ` +
-        `(${firstPurchaseItems.join(', ')}).`,
-    );
+    const firsts = orderSummaryByItem(result)
+      .filter((s) => s.type === 'compra' && s.firstReleaseWeek !== null)
+      .sort((a, b) => a.firstReleaseWeek! - b.firstReleaseWeek! || a.itemCode.localeCompare(b.itemCode))
+      .map((s) => {
+        if (s.firstReleaseWeek! >= 1) return `${s.itemCode} en S${s.firstReleaseWeek} (${s.firstQuantity} u.)`;
+        const next = purchases.find((o) => o.itemCode === s.itemCode && !o.pastDue);
+        return (
+          `${s.itemCode} en ${weekLabel(s.firstReleaseWeek!)}, atrasada (${s.firstQuantity} u.` +
+          (next ? `; su primera orden a tiempo es en S${next.releaseWeek})` : ')')
+        );
+      });
+    conclusions.push(`Primeras órdenes de compra de materias primas: ${firsts.join('; ')}.`);
   }
   for (const lt of leadTimes) {
     conclusions.push(
