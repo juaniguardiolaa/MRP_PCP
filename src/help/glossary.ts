@@ -18,7 +18,9 @@ export type GlossaryId =
   | 'DEM_IND'
   | 'DEM_DEP'
   | 'COMPRA'
-  | 'FABRICACION';
+  | 'FABRICACION'
+  | 'PRONOSTICO'
+  | 'R2';
 
 export interface GlossaryEntry {
   id: GlossaryId;
@@ -182,6 +184,23 @@ const entries: GlossaryEntry[] = [
     name: 'Ítem de compra',
     definition:
       'Ítem que se compra a un proveedor. Sus órdenes son solicitudes de compra. Por defecto, todo ítem sin componentes en la BOM.',
+  },
+  {
+    id: 'PRONOSTICO',
+    abbr: 'Pronóstico',
+    name: 'Pronóstico por regresión lineal',
+    definition:
+      'Estimación de la demanda de las semanas sin datos, prolongando la tendencia de la serie cargada. Se ajusta la recta que minimiza la suma de los errores al cuadrado (mínimos cuadrados) y se redondea a unidades enteras.',
+    formula: 'y = a + b·t   b = Σ(t − t̄)(y − ȳ) / Σ(t − t̄)²   a = ȳ − b·t̄',
+    example: 'A, con la demanda de S1 a S12: y = 11,52 + 1,43·t, así que S13 ≈ 30 u.',
+  },
+  {
+    id: 'R2',
+    abbr: 'R²',
+    name: 'Coeficiente de determinación',
+    definition:
+      'Qué parte de la variación de la demanda explica la recta, de 0 a 1. Cerca de 1 la tendencia es clara; cerca de 0 la demanda varía mucho alrededor de la recta y el pronóstico es menos confiable.',
+    example: 'A tiene R² = 0,14 (tendencia débil) y B, 0,29.',
   },
   {
     id: 'FABRICACION',

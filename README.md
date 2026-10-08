@@ -80,6 +80,20 @@ El motor está en [`src/domain/mrpEngine.ts`](src/domain/mrpEngine.ts).
    - **Lote fijo Q:** se pide ⌈NN/Q⌉ × Q. Si la necesidad supera el lote, se piden varios lotes; por
      ejemplo, D necesita 310 en S6 y se piden 4 × 100.
 
+### Pronóstico de demanda
+
+Si el horizonte supera la demanda cargada en el plan maestro (por ejemplo, 16 semanas con datos hasta S12),
+las semanas sin demanda se completan con un **pronóstico por regresión lineal** ([`src/domain/forecast.ts`](src/domain/forecast.ts)):
+
+- Para cada producto final se ajusta por mínimos cuadrados la recta y = a + b·t sobre la serie cargada
+  (S1 a la última semana con demanda), y se prolonga redondeando a unidades enteras y sin bajar de 0.
+- En el ejercicio, ampliando a 16 semanas: A → y = 11,52 + 1,43·t (S13–S16: 30, 32, 33, 34) y
+  B → y = 9,09 + 1,29·t (26, 27, 28, 30). El R² (0,14 y 0,29) indica una tendencia débil.
+- Las celdas pronosticadas se marcan con **P**. Si escribís un valor en una de ellas, reemplaza al pronóstico
+  de esa semana pero no cambia la recta, que se calcula solo con la serie cargada.
+- El interruptor **Pronóstico automático** del plan maestro lo apaga; en ese caso las semanas sin demanda quedan
+  en 0 y la app lo avisa.
+
 ### Supuestos
 
 - **Inventario proyectado (D):** es el disponible al **cierre** de la semana. En la columna S0 de las tablas

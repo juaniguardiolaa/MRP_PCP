@@ -1,6 +1,7 @@
 import { ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { useState, type Dispatch, type ReactNode } from 'react';
 import { childrenOf, endItems, parentsOf, resolveItemType, usableBomLines } from '../domain/bom';
+import type { ForecastPlan } from '../domain/forecast';
 import { describeLotPolicy } from '../domain/lotSizing';
 import { orderSummaryByItem } from '../domain/reports';
 import type { Item, ItemTypeSetting, MrpResult, Scenario } from '../domain/types';
@@ -9,6 +10,7 @@ import type { ViewId } from '../navigation';
 import { nextItemCode, type ScenarioAction } from '../state/useScenario';
 import { IssueList, NumberInput, TYPE_LABEL, fmt } from './common';
 import { ConfirmButton } from './ConfirmButton';
+import { forecastCell } from './MpsEditor';
 import { PageHeader } from './shell/PageHeader';
 import { ItemCode, StatusChip, TypeChip } from './ui/Chips';
 import { ItemList } from './ui/ItemList';
@@ -88,6 +90,7 @@ function CodeField({ code, taken, onRename }: { code: string; taken: (c: string)
 function ItemSheet({
   item,
   scenario,
+  forecast,
   result,
   dispatch,
   onSelect,
@@ -95,6 +98,7 @@ function ItemSheet({
 }: {
   item: Item;
   scenario: Scenario;
+  forecast: ForecastPlan | null;
   result: MrpResult;
   dispatch: Dispatch<ScenarioAction>;
   onSelect: (code: string) => void;
@@ -291,7 +295,7 @@ function ItemSheet({
           title={isFinal ? 'Demanda (plan maestro)' : 'Demanda independiente'}
           subtitle={
             isFinal
-              ? 'Es un producto final: su demanda se carga en el plan maestro de producción.'
+              ? 'Es un producto final: su demanda se carga en el plan maestro de producción. Las semanas con P son pronóstico.'
               : 'Unidades que se venden sueltas (repuestos). Se suman a lo que piden sus padres.'
           }
           actions={
@@ -312,6 +316,7 @@ function ItemSheet({
                 id: 'demand',
                 label: isFinal ? 'PMP' : 'Repuestos',
                 values: item.demand,
+                ...(isFinal ? forecastCell(forecast, item.code) : {}),
                 onChange: isFinal
                   ? undefined
                   : (week, value) => dispatch({ type: 'setWeekValue', code: item.code, field: 'demand', week, value }),
@@ -386,6 +391,7 @@ function ItemSheet({
 
 export function ItemMaster({
   scenario,
+  forecast,
   result,
   dispatch,
   selected,
@@ -393,6 +399,7 @@ export function ItemMaster({
   onNavigate,
 }: {
   scenario: Scenario;
+  forecast: ForecastPlan | null;
   result: MrpResult;
   dispatch: Dispatch<ScenarioAction>;
   selected: string | null;
@@ -437,6 +444,7 @@ export function ItemMaster({
           <ItemSheet
             item={current}
             scenario={scenario}
+            forecast={forecast}
             result={result}
             dispatch={dispatch}
             onSelect={onSelect}

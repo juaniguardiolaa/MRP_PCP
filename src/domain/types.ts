@@ -39,6 +39,11 @@ export interface Item {
    * de Producción; para los componentes son las "partes fuera del programa" (repuestos).
    */
   demand: number[];
+  /**
+   * Valores escritos a mano sobre semanas pronosticadas (índice 0 = semana 1). Reemplazan
+   * al pronóstico pero no cambian la serie con la que se calcula la regresión.
+   */
+  forecastOverrides?: Record<number, number>;
 }
 
 export interface BomLine {
@@ -51,6 +56,8 @@ export interface BomLine {
 export interface Scenario {
   name: string;
   horizon: number;
+  /** Completar con regresión lineal las semanas del horizonte posteriores a la demanda cargada. */
+  forecastEnabled: boolean;
   items: Item[];
   bom: BomLine[];
 }

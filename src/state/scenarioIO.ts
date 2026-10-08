@@ -14,10 +14,19 @@ function parseLotPolicy(v: unknown): LotPolicy {
   return { kind: 'L4L' };
 }
 
+function parseOverrides(v: unknown): Record<number, number> | undefined {
+  if (typeof v !== 'object' || v === null) return undefined;
+  const entries = Object.entries(v as Record<string, unknown>)
+    .map(([k, q]) => [Number(k), num(q, NaN)] as const)
+    .filter(([k, q]) => Number.isInteger(k) && k >= 0 && Number.isFinite(q));
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
 function parseItem(v: unknown, index: number): Item {
   if (typeof v !== 'object' || v === null) throw new Error(`El ítem #${index + 1} no es válido.`);
   const o = v as Record<string, unknown>;
   if (typeof o.code !== 'string') throw new Error(`El ítem #${index + 1} no tiene código.`);
+  const overrides = parseOverrides(o.forecastOverrides);
   return {
     code: o.code,
     description: typeof o.description === 'string' ? o.description : '',
@@ -28,6 +37,7 @@ function parseItem(v: unknown, index: number): Item {
     type: ITEM_TYPES.includes(o.type as ItemTypeSetting) ? (o.type as ItemTypeSetting) : 'auto',
     scheduledReceipts: numArray(o.scheduledReceipts),
     demand: numArray(o.demand),
+    ...(overrides ? { forecastOverrides: overrides } : {}),
   };
 }
 
@@ -49,6 +59,7 @@ export function parseScenario(data: unknown): Scenario {
   return {
     name: typeof o.name === 'string' ? o.name : 'Escenario importado',
     horizon: Math.min(MAX_HORIZON, Math.max(1, Math.round(num(o.horizon, 12)))),
+    forecastEnabled: typeof o.forecastEnabled === 'boolean' ? o.forecastEnabled : true,
     items: o.items.map(parseItem),
     bom: o.bom.map(parseBomLine),
   };

@@ -17,6 +17,7 @@ import { ShellBar, type PlanStatus } from './components/shell/ShellBar';
 import { Sidebar } from './components/shell/Sidebar';
 import { GlossaryDrawer } from './components/ui/GlossaryDrawer';
 import { Panel } from './components/ui/Panel';
+import { applyForecast, planForecast } from './domain/forecast';
 import { runMrp } from './domain/mrpEngine';
 import { trailingEmptyDemand } from './domain/reports';
 import { IS_ARTIFACT } from './env';
@@ -39,7 +40,11 @@ function initialView(): ViewId {
 
 export default function App() {
   const [scenario, dispatch] = useScenario();
-  const result = useMemo(() => runMrp(scenario), [scenario]);
+  // El MRP se calcula sobre la demanda extendida con el pronóstico.
+  const forecast = useMemo(() => planForecast(scenario), [scenario]);
+  const effective = useMemo(() => applyForecast(scenario, forecast), [scenario, forecast]);
+  const result = useMemo(() => runMrp(effective), [effective]);
+  const emptyWeeks = useMemo(() => trailingEmptyDemand(effective), [effective]);
   const [view, setView] = useState<ViewId>(initialView);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
@@ -96,12 +101,14 @@ export default function App() {
       : { tone: 'ok', text: `Plan calculado · ${result.orders.length} órdenes` };
 
   const renderView = () => {
-    if (view === 'inicio') return <Dashboard scenario={scenario} result={result} onNavigate={navigate} />;
-    if (view === 'pmp') return <MpsEditor scenario={scenario} dispatch={dispatch} />;
+    if (view === 'inicio')
+      return <Dashboard scenario={effective} result={result} forecast={forecast} emptyWeeks={emptyWeeks} onNavigate={navigate} />;
+    if (view === 'pmp') return <MpsEditor scenario={scenario} plan={forecast} emptyWeeks={emptyWeeks} dispatch={dispatch} />;
     if (view === 'items')
       return (
         <ItemMaster
-          scenario={scenario}
+          scenario={effective}
+          forecast={forecast}
           result={result}
           dispatch={dispatch}
           selected={selectedItem}
@@ -128,7 +135,7 @@ export default function App() {
         return (
           <MrpTables
             result={result}
-            emptyWeeks={trailingEmptyDemand(scenario)}
+            emptyWeeks={emptyWeeks}
             selected={selectedItem}
             onSelect={setSelectedItem}
             onNavigate={navigate}
@@ -139,9 +146,9 @@ export default function App() {
       case 'compras':
         return <Purchases result={result} />;
       case 'analisis':
-        return <Analysis scenario={scenario} result={result} />;
+        return <Analysis scenario={effective} result={result} />;
       case 'informe':
-        return <Report scenario={scenario} result={result} />;
+        return <Report scenario={effective} result={result} forecast={forecast} />;
     }
   };
 
