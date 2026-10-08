@@ -18,6 +18,7 @@ import { Sidebar } from './components/shell/Sidebar';
 import { GlossaryDrawer } from './components/ui/GlossaryDrawer';
 import { Panel } from './components/ui/Panel';
 import { runMrp } from './domain/mrpEngine';
+import { trailingEmptyDemand } from './domain/reports';
 import { IS_ARTIFACT } from './env';
 import { isViewId, VIEWS, type ViewId } from './navigation';
 import { useScenario } from './state/useScenario';
@@ -124,7 +125,15 @@ export default function App() {
       case 'estructura':
         return <ProductStructure scenario={scenario} result={result} />;
       case 'explosion':
-        return <MrpTables result={result} selected={selectedItem} onSelect={setSelectedItem} onNavigate={navigate} />;
+        return (
+          <MrpTables
+            result={result}
+            emptyWeeks={trailingEmptyDemand(scenario)}
+            selected={selectedItem}
+            onSelect={setSelectedItem}
+            onNavigate={navigate}
+          />
+        );
       case 'ordenes':
         return <OrderPlan result={result} />;
       case 'compras':

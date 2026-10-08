@@ -1,7 +1,14 @@
 import { ArrowDown, ArrowRight, CalendarRange, ChartGantt, CircleCheck, GitFork, Network, Package, ShoppingCart, Table2, TriangleAlert, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
-import { dashboardSummary, numberOrders, ordersPerWeek, type DashboardSummary, type WeekLoad } from '../domain/reports';
-import type { MrpResult, Scenario } from '../domain/types';
+import {
+  dashboardSummary,
+  numberOrders,
+  ordersPerWeek,
+  trailingEmptyDemand,
+  type DashboardSummary,
+  type WeekLoad,
+} from '../domain/reports';
+import type { Issue, MrpResult, Scenario } from '../domain/types';
 import type { ViewId } from '../navigation';
 import { IssueList, fmt } from './common';
 import { PageHeader } from './shell/PageHeader';
@@ -244,7 +251,18 @@ export function Dashboard({ scenario, result, onNavigate }: { scenario: Scenario
   const s = dashboardSummary(scenario, result);
   const numbers = numberOrders(result.orders);
   const descriptions = new Map(result.records.map((r) => [r.code, r.description]));
-  const alerts = result.alerts.filter((a) => a.severity !== 'info');
+  const gap = trailingEmptyDemand(scenario);
+  const gapAlert: Issue[] = gap
+    ? [
+        {
+          severity: 'warning',
+          message:
+            `El plan maestro no tiene demanda en ${gap.from === gap.to ? `S${gap.from}` : `S${gap.from} a S${gap.to}`}: ` +
+            'el MRP no planifica nada en esas semanas. Cargá la demanda en el plan maestro.',
+        },
+      ]
+    : [];
+  const alerts = [...gapAlert, ...result.alerts.filter((a) => a.severity !== 'info')];
 
   return (
     <>

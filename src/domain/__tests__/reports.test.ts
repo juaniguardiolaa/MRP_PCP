@@ -9,6 +9,7 @@ import {
   orderSummaryByItem,
   ordersByReleaseWeek,
   ordersPerWeek,
+  trailingEmptyDemand,
 } from '../reports';
 
 const ctx = (netRequirement: number) => ({
@@ -112,5 +113,21 @@ describe('panel de inicio', () => {
     expect(of('A', 1)).toBe('OF-001');
     expect(of('D', 1)).toBe('OC-002');
     expect(new Set(numbers.values()).size).toBe(59);
+  });
+});
+
+describe('semanas sin demanda al final del horizonte', () => {
+  it('el ejercicio tiene demanda hasta la semana 12', () => {
+    expect(trailingEmptyDemand(ejercicioOct26())).toBeNull();
+  });
+
+  it('al ampliar el horizonte detecta las semanas nuevas sin PMP', () => {
+    expect(trailingEmptyDemand({ ...ejercicioOct26(), horizon: 16 })).toEqual({ from: 13, to: 16 });
+  });
+
+  it('basta con que un producto tenga demanda para que la semana cuente', () => {
+    const s = { ...ejercicioOct26(), horizon: 16 };
+    s.items = s.items.map((i) => (i.code === 'A' ? { ...i, demand: [...i.demand, 25] } : i));
+    expect(trailingEmptyDemand(s)).toEqual({ from: 14, to: 16 });
   });
 });
