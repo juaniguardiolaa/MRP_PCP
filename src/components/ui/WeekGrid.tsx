@@ -1,3 +1,4 @@
+import type { WeekRange } from '../../domain/reports';
 import { NumberInput, fmt, weekNumbers } from '../common';
 
 export interface WeekRow {
@@ -9,8 +10,20 @@ export interface WeekRow {
 }
 
 /** Grilla semanal S1..SH con una o más filas editables y total por fila. */
-export function WeekGrid({ rows, horizon, caption }: { rows: WeekRow[]; horizon: number; caption: string }) {
+export function WeekGrid({
+  rows,
+  horizon,
+  caption,
+  marked,
+}: {
+  rows: WeekRow[];
+  horizon: number;
+  caption: string;
+  /** Semanas a resaltar (p. ej. sin demanda cargada). */
+  marked?: WeekRange | null;
+}) {
   const weeks = weekNumbers(horizon);
+  const isMarked = (w: number) => !!marked && w >= marked.from && w <= marked.to;
   return (
     <div className="table-scroll">
       <table className="data-table week-grid">
@@ -21,7 +34,7 @@ export function WeekGrid({ rows, horizon, caption }: { rows: WeekRow[]; horizon:
               Concepto
             </th>
             {weeks.map((w) => (
-              <th key={w} scope="col" className="num">
+              <th key={w} scope="col" className={isMarked(w) ? 'num col-empty' : 'num'}>
                 S{w}
               </th>
             ))}
@@ -37,7 +50,7 @@ export function WeekGrid({ rows, horizon, caption }: { rows: WeekRow[]; horizon:
                 {r.label}
               </th>
               {weeks.map((w) => (
-                <td key={w} className={r.onChange ? 'cell-input' : 'num'}>
+                <td key={w} className={`${r.onChange ? 'cell-input' : 'num'}${isMarked(w) ? ' col-empty' : ''}`}>
                   {r.onChange ? (
                     <NumberInput
                       label={`${r.label}, semana ${w}`}

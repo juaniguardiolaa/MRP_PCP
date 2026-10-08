@@ -1,7 +1,7 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { describeLotPolicy } from '../domain/lotSizing';
-import { orderSummaryByItem, requirementsSummary } from '../domain/reports';
+import { orderSummaryByItem, requirementsSummary, type WeekRange } from '../domain/reports';
 import type { MrpRecord, MrpResult } from '../domain/types';
 import type { GlossaryId } from '../help/glossary';
 import type { ViewId } from '../navigation';
@@ -165,11 +165,14 @@ export function RequirementsSummaryTable({ result }: { result: MrpResult }) {
 
 export function MrpTables({
   result,
+  emptyWeeks,
   selected,
   onSelect,
   onNavigate,
 }: {
   result: MrpResult;
+  /** Semanas finales sin demanda en el PMP. */
+  emptyWeeks: WeekRange | null;
   selected: string | null;
   onSelect: (code: string) => void;
   onNavigate: (view: ViewId, item?: string) => void;
@@ -205,6 +208,22 @@ export function MrpTables({
           />
         }
       />
+
+      {emptyWeeks && (
+        <div className="callout callout-warn" role="status">
+          <TriangleAlert size={16} aria-hidden />
+          <div>
+            <p>
+              El plan maestro no tiene demanda en{' '}
+              {emptyWeeks.from === emptyWeeks.to ? `S${emptyWeeks.from}` : `S${emptyWeeks.from} a S${emptyWeeks.to}`}: por eso
+              esas semanas no tienen necesidades ni órdenes.
+            </p>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onNavigate('pmp')}>
+              Cargar demanda en el plan maestro
+            </button>
+          </div>
+        </div>
+      )}
 
       {mode === 'uno' && record ? (
         <div className="master-detail">

@@ -255,3 +255,21 @@ export function numberOrders(orders: PlannedOrder[]): Map<PlannedOrder, string> 
     }),
   );
 }
+
+export interface WeekRange {
+  from: number;
+  to: number;
+}
+
+/**
+ * Semanas al final del horizonte en las que ningún producto final tiene demanda (p. ej.
+ * al ampliar el horizonte sin cargar el PMP). En esas semanas el MRP no tiene nada que
+ * planificar. Devuelve null si la última semana tiene demanda o si no hay productos finales.
+ */
+export function trailingEmptyDemand(scenario: Scenario): WeekRange | null {
+  const products = endItems(scenario.items, usableBomLines(scenario.items, scenario.bom));
+  if (!products.length) return null;
+  let from = scenario.horizon + 1;
+  while (from > 1 && products.every((p) => !(p.demand[from - 2] > 0))) from--;
+  return from <= scenario.horizon ? { from, to: scenario.horizon } : null;
+}
