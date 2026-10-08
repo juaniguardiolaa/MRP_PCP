@@ -23,7 +23,8 @@ function mapItem(s: Scenario, code: string, fn: (i: Item) => Item): Scenario {
   return { ...s, items: s.items.map((i) => (i.code === code ? fn(i) : i)) };
 }
 
-function nextCode(items: Item[]): string {
+/** Próximo código libre (A..Z, AA, AB, ...), el mismo que usa la acción addItem. */
+export function nextItemCode(items: Item[]): string {
   const codes = new Set(items.map((i) => i.code));
   for (let n = 0; ; n++) {
     // A..Z, luego AA, AB, ...
@@ -62,7 +63,7 @@ export function scenarioReducer(s: Scenario, a: ScenarioAction): Scenario {
         return { ...i, [a.field]: series };
       });
     case 'addItem': {
-      const code = nextCode(s.items);
+      const code = nextItemCode(s.items);
       const item: Item = {
         code,
         description: `Ítem ${code}`,

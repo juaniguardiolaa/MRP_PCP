@@ -1,7 +1,19 @@
 import type { ReactNode } from 'react';
-import { buildProductTree, endItems, parentsOf, resolveItemType, treeDepth, usableBomLines, type TreeNode } from '../domain/bom';
+import {
+  buildProductTree,
+  endItems,
+  findCycle,
+  parentsOf,
+  resolveItemType,
+  treeDepth,
+  usableBomLines,
+  type TreeNode,
+} from '../domain/bom';
 import type { ItemType, MrpResult, Scenario } from '../domain/types';
-import { Section, TypeBadge } from './common';
+import { PageHeader } from './shell/PageHeader';
+import { ItemCode, TypeChip } from './ui/Chips';
+import { Panel } from './ui/Panel';
+import { Term } from './ui/Term';
 
 const NODE_W = 76;
 const NODE_H = 30;
@@ -30,7 +42,16 @@ function layout(root: TreeNode): { tree: Placed; leaves: number } {
   return { tree, leaves: Math.max(slot, 1) };
 }
 
-function TreeSvg({ root, typeOf }: { root: TreeNode; typeOf: (code: string) => ItemType }) {
+export function TreeSvg({
+  root,
+  typeOf,
+  highlight,
+}: {
+  root: TreeNode;
+  typeOf: (code: string) => ItemType;
+  /** Código a resaltar en el árbol (p. ej. el conjunto elegido en la BOM). */
+  highlight?: string | null;
+}) {
   const { tree, leaves } = layout(root);
   const depth = treeDepth(root);
   const width = LABEL_W + leaves * SLOT_W;
@@ -53,9 +74,12 @@ function TreeSvg({ root, typeOf }: { root: TreeNode; typeOf: (code: string) => I
       );
     }
     const label = p.node.depth === 0 ? p.node.code : `${p.node.code} (${p.node.quantity})`;
+    const classes = ['tree-node', `tree-${typeOf(p.node.code)}`, p.node.code === highlight && 'tree-highlight']
+      .filter(Boolean)
+      .join(' ');
     elements.push(
-      <g key={key} className={`tree-node tree-${typeOf(p.node.code)}`}>
-        <rect x={p.x - NODE_W / 2} y={p.y} width={NODE_W} height={NODE_H} rx={4} />
+      <g key={key} className={classes}>
+        <rect x={p.x - NODE_W / 2} y={p.y} width={NODE_W} height={NODE_H} rx={3} />
         <text x={p.x} y={p.y + NODE_H / 2} dominantBaseline="central" textAnchor="middle">
           {label}
         </text>
@@ -87,73 +111,101 @@ function TreeSvg({ root, typeOf }: { root: TreeNode; typeOf: (code: string) => I
   );
 }
 
-export function ProductStructure({ scenario, result }: { scenario: Scenario; result: MrpResult }) {
+export function TreeLegend() {
+  return (
+    <p className="legend">
+      <span className="legend-swatch swatch-fabricacion" /> Fabricación
+      <span className="legend-swatch swatch-compra" /> Compra
+      <span className="legend-note">El número entre paréntesis es el coeficiente de uso.</span>
+    </p>
+  );
+}
+
+/** Un árbol por producto final. */
+export function TreeGallery({ scenario, highlight }: { scenario: Scenario; highlight?: string | null }) {
   const bom = usableBomLines(scenario.items, scenario.bom);
-  const products = endItems(scenario.items, bom);
+  const cycle = findCycle(scenario.items, bom);
+  if (cycle) {
+    return <p className="text-critical">No se puede dibujar el árbol: la lista de materiales tiene un ciclo ({cycle.join(' → ')}).</p>;
+  }
   const typeOf = (code: string) => {
     const item = scenario.items.find((i) => i.code === code);
     return item ? resolveItemType(item, bom) : 'compra';
   };
-
   return (
-    <Section
-      title="Estructura del producto"
-      subtitle="Árbol de cada producto final con sus niveles jerárquicos y coeficientes de uso entre partes, entre paréntesis."
-    >
-      <div className="legend">
-        <span className="legend-swatch tree-fabricacion" /> Fabricación
-        <span className="legend-swatch tree-compra" /> Compra
-      </div>
-      <div className="tree-grid">
-        {products.map((p) => (
-          <figure key={p.code} className="card tree-card">
-            <figcaption>
-              Producto {p.code} <span className="muted">– {p.description}</span>
-            </figcaption>
-            <div className="table-scroll">
-              <TreeSvg root={buildProductTree(p.code, bom)} typeOf={typeOf} />
-            </div>
-          </figure>
-        ))}
-      </div>
+    <div className="tree-grid">
+      {endItems(scenario.items, bom).map((p) => (
+        <figure key={p.code} className="tree-card">
+          <figcaption>
+            <ItemCode code={p.code} /> {p.description}
+          </figcaption>
+          <div className="table-scroll">
+            <TreeSvg root={buildProductTree(p.code, bom)} typeOf={typeOf} highlight={highlight} />
+          </div>
+        </figure>
+      ))}
+    </div>
+  );
+}
 
-      <h3>Códigos de nivel inferior</h3>
-      <p className="muted small">
-        El MRP procesa cada ítem en el nivel más bajo en que aparece, para sumar primero las necesidades de todos sus
-        padres (p. ej. D y E, que se usan en A y en B).
-      </p>
-      <div className="table-scroll">
-        <table className="grid-table">
-          <thead>
-            <tr>
-              <th>Ítem</th>
-              <th>Descripción</th>
-              <th>Nivel (código inferior)</th>
-              <th>Tipo</th>
-              <th>Se usa en (coeficiente)</th>
-              <th>Lead time</th>
+export function LevelTable({ scenario, result }: { scenario: Scenario; result: MrpResult }) {
+  const bom = usableBomLines(scenario.items, scenario.bom);
+  return (
+    <div className="table-scroll">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th scope="col">Ítem</th>
+            <th scope="col">Descripción</th>
+            <th scope="col" className="num">
+              <Term id="LLC" />
+            </th>
+            <th scope="col">Tipo</th>
+            <th scope="col">Se usa en (coeficiente)</th>
+            <th scope="col" className="num">
+              <Term id="LT" />
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {result.records.map((r) => (
+            <tr key={r.code}>
+              <th scope="row">
+                <ItemCode code={r.code} />
+              </th>
+              <td>{r.description}</td>
+              <td className="num">{r.level}</td>
+              <td>
+                <TypeChip type={r.type} />
+              </td>
+              <td>
+                {parentsOf(bom, r.code)
+                  .map((l) => `${l.parent} (${l.quantity})`)
+                  .join(', ') || <span className="muted">Producto final</span>}
+              </td>
+              <td className="num">{r.leadTime} sem.</td>
             </tr>
-          </thead>
-          <tbody>
-            {result.records.map((r) => (
-              <tr key={r.code}>
-                <th className="row-head">{r.code}</th>
-                <td>{r.description}</td>
-                <td className="num">{r.level}</td>
-                <td>
-                  <TypeBadge type={r.type} />
-                </td>
-                <td>
-                  {parentsOf(bom, r.code)
-                    .map((l) => `${l.parent} (${l.quantity})`)
-                    .join(', ') || <span className="muted">Producto final</span>}
-                </td>
-                <td className="num">{r.leadTime} sem.</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Section>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function ProductStructure({ scenario, result }: { scenario: Scenario; result: MrpResult }) {
+  return (
+    <>
+      <PageHeader view="estructura" />
+      <Panel title="Árbol de cada producto final" actions={<TreeLegend />}>
+        <TreeGallery scenario={scenario} />
+      </Panel>
+      <Panel
+        title="Códigos de nivel inferior"
+        subtitle="El MRP calcula cada ítem en el nivel más bajo en que aparece, para sumar antes lo que piden todos sus padres."
+        flush
+      >
+        <LevelTable scenario={scenario} result={result} />
+      </Panel>
+    </>
   );
 }

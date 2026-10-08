@@ -1,7 +1,9 @@
+import { X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { Scenario } from '../domain/types';
 import { IS_ARTIFACT } from '../env';
 import { downloadScenario, parseScenario } from '../state/scenarioIO';
+import { Panel } from './ui/Panel';
 
 export type TransferMode = 'export' | 'import';
 
@@ -48,30 +50,29 @@ export function ScenarioTransfer({
   };
 
   return (
-    <section className="section transfer no-print" aria-label={mode === 'export' ? 'Exportar escenario' : 'Importar escenario'}>
-      <header className="section-header">
-        <div>
-          <h2>{mode === 'export' ? 'Exportar escenario' : 'Importar escenario'}</h2>
-          <p className="section-subtitle">
-            {mode === 'export'
-              ? 'Guardá este texto en un archivo .json para recuperar el escenario más adelante o compartirlo con el grupo.'
-              : 'Elegí un archivo .json exportado desde esta app o pegá su contenido. Reemplaza los datos actuales.'}
-          </p>
-        </div>
+    <Panel
+      className="transfer no-print"
+      title={mode === 'export' ? 'Exportar escenario' : 'Importar escenario'}
+      subtitle={
+        mode === 'export'
+          ? 'Guardá este texto en un archivo .json para recuperar el escenario más adelante o compartirlo con el grupo.'
+          : 'Elegí un archivo .json exportado desde esta app o pegá su contenido. Reemplaza los datos actuales.'
+      }
+      actions={
         <button type="button" className="icon-btn" aria-label="Cerrar" title="Cerrar" onClick={onClose}>
-          ✕
+          <X size={18} />
         </button>
-      </header>
-
+      }
+    >
       {mode === 'export' ? (
         <div className="transfer-body">
           <textarea id="export-json" ref={exportArea} className="json-area" readOnly value={json} rows={8} />
           <div className="transfer-actions">
-            <button type="button" className="btn" onClick={copy}>
+            <button type="button" className="btn btn-primary" onClick={copy}>
               {copied ? 'Copiado' : 'Copiar'}
             </button>
             {!IS_ARTIFACT && (
-              <button type="button" className="btn btn-plain" onClick={() => downloadScenario(scenario)}>
+              <button type="button" className="btn btn-secondary" onClick={() => downloadScenario(scenario)}>
                 Descargar .json
               </button>
             )}
@@ -79,7 +80,7 @@ export function ScenarioTransfer({
         </div>
       ) : (
         <div className="transfer-body">
-          <label className="file-field">
+          <label className="field-label" htmlFor="import-file">
             Archivo
             <input
               id="import-file"
@@ -105,12 +106,12 @@ export function ScenarioTransfer({
           />
           {error && <p className="issue issue-error">No se pudo importar: {error}</p>}
           <div className="transfer-actions">
-            <button type="button" className="btn" disabled={!text.trim()} onClick={() => load(text)}>
+            <button type="button" className="btn btn-primary" disabled={!text.trim()} onClick={() => load(text)}>
               Cargar escenario
             </button>
           </div>
         </div>
       )}
-    </section>
+    </Panel>
   );
 }

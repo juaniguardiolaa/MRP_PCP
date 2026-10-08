@@ -1,7 +1,13 @@
+import { useState } from 'react';
 import { describeLots } from '../domain/lotSizing';
-import { ordersByReleaseWeek } from '../domain/reports';
+import { numberOrders, ordersByReleaseWeek } from '../domain/reports';
 import type { ItemType, MrpResult, PlannedOrder } from '../domain/types';
-import { Section, TYPE_LABEL, TypeBadge, fmt, weekNumbers } from './common';
+import { fmt, weekNumbers } from './common';
+import { PageHeader } from './shell/PageHeader';
+import { ItemCode, StatusChip, TypeChip } from './ui/Chips';
+import { Panel } from './ui/Panel';
+import { SegmentedControl } from './ui/SegmentedControl';
+import { Term } from './ui/Term';
 
 /** Columna de la grilla para una semana: 1 = etiqueta, 2 = "S0 o antes", 3 = S1, ... */
 const col = (week: number) => (week >= 1 ? week + 2 : 2);
@@ -19,12 +25,15 @@ function assignLanes(orders: PlannedOrder[]) {
   });
 }
 
-export function OrderGantt({ result }: { result: MrpResult }) {
+export function OrderGantt({ result, orders = result.orders }: { result: MrpResult; orders?: PlannedOrder[] }) {
   const weeks = weekNumbers(result.horizon);
-  const template = `minmax(84px, 110px) repeat(${result.horizon + 1}, minmax(40px, 1fr))`;
+  const template = `minmax(96px, 120px) repeat(${result.horizon + 1}, minmax(40px, 1fr))`;
+  const numbers = numberOrders(result.orders);
+  const records = result.records.filter((r) => orders.some((o) => o.itemCode === r.code));
+  if (!records.length) return <p className="muted">No hay órdenes con este filtro.</p>;
   return (
     <div className="table-scroll">
-      <div className="gantt" style={{ minWidth: 110 + (result.horizon + 1) * 44 }}>
+      <div className="gantt" style={{ minWidth: 120 + (result.horizon + 1) * 44 }}>
         <div className="gantt-row gantt-head" style={{ gridTemplateColumns: template }}>
           <div className="gantt-label">Ítem</div>
           <div className="gantt-cell gantt-late-col" title="Emisiones atrasadas (semana 0 o antes)">
@@ -36,8 +45,8 @@ export function OrderGantt({ result }: { result: MrpResult }) {
             </div>
           ))}
         </div>
-        {result.records.map((r) => {
-          const bars = assignLanes(result.orders.filter((o) => o.itemCode === r.code));
+        {records.map((r) => {
+          const bars = assignLanes(orders.filter((o) => o.itemCode === r.code));
           const lanes = Math.max(1, ...bars.map((b) => b.lane + 1));
           return (
             <div
@@ -46,19 +55,20 @@ export function OrderGantt({ result }: { result: MrpResult }) {
               style={{ gridTemplateColumns: template, gridTemplateRows: `repeat(${lanes}, 26px)` }}
             >
               <div className="gantt-label" style={{ gridRow: `1 / span ${lanes}` }}>
-                <strong>{r.code}</strong> <span className="muted small">N{r.level} · LT {r.leadTime}</span>
+                <ItemCode code={r.code} />
+                <span className="gantt-meta">N{r.level} · LT {r.leadTime}</span>
               </div>
               {[0, ...weeks].map((w) => (
                 <div
                   key={w}
-                  className={`gantt-cell gantt-bg ${w === 0 ? 'gantt-late-col' : ''}`}
+                  className={`gantt-bg ${w === 0 ? 'gantt-late-col' : ''}`}
                   style={{ gridColumn: col(w), gridRow: `1 / span ${lanes}` }}
                 />
               ))}
               {bars.map(({ order: o, start, end, lane }) => {
                 const lots = describeLots(o.lotPolicy, o.quantity);
                 const title =
-                  `${o.itemCode}: ${fmt(o.quantity)} u.${lots ? ` (${lots})` : ''} – ` +
+                  `${numbers.get(o)} · ${o.itemCode}: ${fmt(o.quantity)} u.${lots ? ` (${lots})` : ''} – ` +
                   `emitir en S${o.releaseWeek}, recibir en S${o.receiptWeek}` +
                   (o.pastDue ? ' – ATRASADA' : '');
                 return (
@@ -83,61 +93,68 @@ export function OrderGantt({ result }: { result: MrpResult }) {
 
 export function GanttLegend() {
   return (
-    <p className="legend small">
-      <span className="legend-swatch bar-fabricacion" /> Orden de fabricación
-      <span className="legend-swatch bar-compra" /> Orden de compra
+    <p className="legend">
+      <span className="legend-swatch bar-fabricacion" /> Fabricación
+      <span className="legend-swatch bar-compra" /> Compra
       <span className="legend-swatch bar-late" /> Atrasada
-      <span className="muted">
-        · Cada barra empieza en la semana de emisión (EOP) y termina cuando se recibe la orden (ROP).
-      </span>
+      <span className="legend-note">La barra va de la emisión a la recepción.</span>
     </p>
   );
 }
 
-/** Calendario de acciones: qué pedir, cuánto y cuándo. */
-export function OrdersByWeekTable({ result, type }: { result: MrpResult; type?: ItemType }) {
-  const groups = ordersByReleaseWeek(result.orders, type);
-  if (!groups.length) return <p className="muted">No hay órdenes planificadas en el horizonte.</p>;
+/** Órdenes agrupadas por semana de emisión, con su número. */
+export function OrdersTable({
+  result,
+  orders = result.orders,
+  type,
+}: {
+  result: MrpResult;
+  orders?: PlannedOrder[];
+  /** Si se indica, la tabla es de un solo tipo y no muestra la columna Tipo. */
+  type?: ItemType;
+}) {
+  const numbers = numberOrders(result.orders);
+  const descriptions = new Map(result.records.map((r) => [r.code, r.description]));
+  const groups = ordersByReleaseWeek(orders, type);
+  if (!groups.length) return <p className="muted panel-pad">No hay órdenes planificadas con este filtro.</p>;
   return (
     <div className="table-scroll">
-      <table className="grid-table orders-table">
+      <table className="data-table orders-table">
         <thead>
           <tr>
-            <th>Emitir en</th>
-            <th>Ítem</th>
-            {!type && <th>Tipo</th>}
-            <th>Cantidad</th>
-            <th>Lotes</th>
-            <th>Recibir en</th>
-            <th>Estado</th>
+            <th scope="col">{type === 'compra' ? 'N° OC' : 'N° orden'}</th>
+            <th scope="col">Emitir en</th>
+            <th scope="col">Ítem</th>
+            {!type && <th scope="col">Tipo</th>}
+            <th scope="col" className="num">
+              Cantidad
+            </th>
+            <th scope="col" className="num">
+              Lotes
+            </th>
+            <th scope="col">{type === 'compra' ? 'Necesaria en' : 'Recibir en'}</th>
+            <th scope="col">Estado</th>
           </tr>
         </thead>
         {groups.map((g) => (
           <tbody key={g.week} className="week-group">
-            {g.orders.map((o, k) => (
+            {g.orders.map((o) => (
               <tr key={`${o.itemCode}-${o.receiptWeek}`} className={o.pastDue ? 'row-late' : undefined}>
-                {k === 0 && (
-                  <th className="row-head week-cell" rowSpan={g.orders.length}>
-                    {g.week === 0 ? 'S0 o antes' : `S${g.week}`}
-                  </th>
-                )}
+                <td className="mono">{numbers.get(o)}</td>
+                <td>{o.pastDue ? <span className="text-critical">S{o.releaseWeek}</span> : `S${o.releaseWeek}`}</td>
                 <td>
-                  <strong>{o.itemCode}</strong>
+                  <ItemCode code={o.itemCode} /> <span className="muted">{descriptions.get(o.itemCode)}</span>
                 </td>
                 {!type && (
                   <td>
-                    <TypeBadge type={o.type} />
+                    <TypeChip type={o.type} />
                   </td>
                 )}
-                <td className="num">{fmt(o.quantity)}</td>
+                <td className="num strong">{fmt(o.quantity)}</td>
                 <td className="num">{describeLots(o.lotPolicy, o.quantity) ?? 'L4L'}</td>
-                <td className="num">S{o.receiptWeek}</td>
+                <td>S{o.receiptWeek}</td>
                 <td>
-                  {o.pastDue ? (
-                    <span className="badge badge-late">Atrasada (S{o.releaseWeek})</span>
-                  ) : (
-                    <span className="badge badge-ok">A tiempo</span>
-                  )}
+                  {o.pastDue ? <StatusChip tone="critical">Atrasada</StatusChip> : <StatusChip tone="ok">A tiempo</StatusChip>}
                 </td>
               </tr>
             ))}
@@ -148,23 +165,60 @@ export function OrdersByWeekTable({ result, type }: { result: MrpResult; type?: 
   );
 }
 
+type TypeFilter = 'todas' | ItemType;
+
 export function OrderPlan({ result }: { result: MrpResult }) {
-  const count = (t: ItemType) => result.orders.filter((o) => o.type === t).length;
+  const [type, setType] = useState<TypeFilter>('todas');
+  const [item, setItem] = useState('');
+  const orders = result.orders.filter((o) => (type === 'todas' || o.type === type) && (!item || o.itemCode === item));
+  const count = (t: ItemType) => orders.filter((o) => o.type === t).length;
+
   return (
     <>
-      <Section
+      <PageHeader
+        view="ordenes"
+        actions={
+          <>
+            <SegmentedControl<TypeFilter>
+              label="Tipo de orden"
+              value={type}
+              onChange={setType}
+              options={[
+                { value: 'todas', label: 'Todas' },
+                { value: 'fabricacion', label: 'Fabricación' },
+                { value: 'compra', label: 'Compra' },
+              ]}
+            />
+            <select aria-label="Filtrar por ítem" value={item} onChange={(e) => setItem(e.currentTarget.value)}>
+              <option value="">Todos los ítems</option>
+              {result.records.map((r) => (
+                <option key={r.code} value={r.code}>
+                  {r.code} · {r.description}
+                </option>
+              ))}
+            </select>
+          </>
+        }
+      />
+      <Panel
         title="Diagrama de pedidos"
-        subtitle={`${result.orders.length} órdenes planificadas: ${count('fabricacion')} de ${TYPE_LABEL.fabricacion.toLowerCase()} y ${count('compra')} de ${TYPE_LABEL.compra.toLowerCase()}.`}
+        subtitle={`${orders.length} órdenes: ${count('fabricacion')} de fabricación y ${count('compra')} de compra.`}
+        actions={<GanttLegend />}
       >
-        <GanttLegend />
-        <OrderGantt result={result} />
-      </Section>
-      <Section
-        title="Calendario de órdenes"
-        subtitle="Qué pedir, en qué cantidad y cuándo emitir cada orden de compra o de fabricación."
+        <OrderGantt result={result} orders={orders} />
+      </Panel>
+      <Panel
+        title="Órdenes planificadas"
+        subtitle={
+          <>
+            Agrupadas por semana de emisión (<Term id="EOP" />
+            ). OF = orden de fabricación, OC = orden de compra.
+          </>
+        }
+        flush
       >
-        <OrdersByWeekTable result={result} />
-      </Section>
+        <OrdersTable result={result} orders={orders} />
+      </Panel>
     </>
   );
 }

@@ -1,20 +1,31 @@
+import { CircleCheck, TriangleAlert } from 'lucide-react';
 import { endItemLeadTimes, feasibilityAnalysis, orderSummaryByItem } from '../domain/reports';
 import type { MrpResult, Scenario } from '../domain/types';
-import { IssueList, Section, TypeBadge, fmt } from './common';
+import { IssueList, fmt } from './common';
+import { PageHeader } from './shell/PageHeader';
+import { ItemCode, StatusChip, TypeChip } from './ui/Chips';
+import { Panel } from './ui/Panel';
+import { Term } from './ui/Term';
 
 export function FirstOrdersTable({ result }: { result: MrpResult }) {
   return (
     <div className="table-scroll">
-      <table className="grid-table">
+      <table className="data-table">
         <thead>
           <tr>
-            <th>Ítem</th>
-            <th>Nivel</th>
-            <th>Tipo</th>
-            <th>Primera emisión</th>
-            <th>Cantidad</th>
-            <th>Recepción</th>
-            <th>Órdenes en el horizonte</th>
+            <th scope="col">Ítem</th>
+            <th scope="col" className="num">
+              Nivel
+            </th>
+            <th scope="col">Tipo</th>
+            <th scope="col">Primera emisión</th>
+            <th scope="col" className="num">
+              Cantidad
+            </th>
+            <th scope="col">Recepción</th>
+            <th scope="col" className="num">
+              Órdenes
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -22,17 +33,19 @@ export function FirstOrdersTable({ result }: { result: MrpResult }) {
             const late = s.firstReleaseWeek !== null && s.firstReleaseWeek < 1;
             return (
               <tr key={s.itemCode} className={late ? 'row-late' : s.type === 'compra' ? 'row-purchase' : undefined}>
-                <th className="row-head">{s.itemCode}</th>
+                <th scope="row">
+                  <ItemCode code={s.itemCode} />
+                </th>
                 <td className="num">{s.level}</td>
                 <td>
-                  <TypeBadge type={s.type} />
+                  <TypeChip type={s.type} />
                 </td>
-                <td className="num">
-                  {s.firstReleaseWeek === null ? '—' : `S${s.firstReleaseWeek}`}
-                  {late && <span className="badge badge-late">atrasada</span>}
+                <td>
+                  {s.firstReleaseWeek === null ? '—' : `S${s.firstReleaseWeek}`}{' '}
+                  {late && <StatusChip tone="critical">Atrasada</StatusChip>}
                 </td>
                 <td className="num">{s.orderCount ? fmt(s.firstQuantity) : '—'}</td>
-                <td className="num">{s.firstReceiptWeek === null ? '—' : `S${s.firstReceiptWeek}`}</td>
+                <td>{s.firstReceiptWeek === null ? '—' : `S${s.firstReceiptWeek}`}</td>
                 <td className="num">{s.orderCount}</td>
               </tr>
             );
@@ -44,23 +57,28 @@ export function FirstOrdersTable({ result }: { result: MrpResult }) {
 }
 
 export function LeadTimeTable({ scenario }: { scenario: Scenario }) {
-  const leadTimes = endItemLeadTimes(scenario);
   return (
     <div className="table-scroll">
-      <table className="grid-table">
+      <table className="data-table">
         <thead>
           <tr>
-            <th>Producto</th>
-            <th>Lead time acumulado</th>
-            <th>Ruta crítica</th>
-            <th>Demanda dentro de esa ventana</th>
+            <th scope="col">Producto</th>
+            <th scope="col" className="num">
+              <Term id="LT_ACUM" />
+            </th>
+            <th scope="col">Ruta crítica</th>
+            <th scope="col" className="num">
+              Demanda dentro de esa ventana
+            </th>
           </tr>
         </thead>
         <tbody>
-          {leadTimes.map((lt) => (
+          {endItemLeadTimes(scenario).map((lt) => (
             <tr key={lt.itemCode}>
-              <th className="row-head">{lt.itemCode}</th>
-              <td className="num">{lt.weeks} sem.</td>
+              <th scope="row">
+                <ItemCode code={lt.itemCode} />
+              </th>
+              <td className="num strong">{lt.weeks} sem.</td>
               <td>{lt.path.join(' → ')}</td>
               <td className="num">
                 {fmt(lt.demandWithinWindow)} u. (S1–S{Math.min(lt.weeks, scenario.horizon)})
@@ -75,9 +93,13 @@ export function LeadTimeTable({ scenario }: { scenario: Scenario }) {
 
 export function Conclusions({ scenario, result }: { scenario: Scenario; result: MrpResult }) {
   const { conclusions, pastDueOrders } = feasibilityAnalysis(scenario, result);
+  const risk = pastDueOrders.length > 0;
   return (
-    <div className={`card conclusions ${pastDueOrders.length ? 'conclusions-risk' : 'conclusions-ok'}`}>
-      <h3>Conclusiones</h3>
+    <div className={risk ? 'verdict verdict-risk' : 'verdict verdict-ok'}>
+      <div className="verdict-head">
+        {risk ? <TriangleAlert size={20} aria-hidden /> : <CircleCheck size={20} aria-hidden />}
+        <strong>{risk ? 'El plan tiene riesgo de incumplimiento' : 'El plan es factible'}</strong>
+      </div>
       <ul>
         {conclusions.map((c, i) => (
           <li key={i}>{c}</li>
@@ -90,34 +112,37 @@ export function Conclusions({ scenario, result }: { scenario: Scenario; result: 
 export function Analysis({ scenario, result }: { scenario: Scenario; result: MrpResult }) {
   return (
     <>
-      <Section
-        title="Análisis técnico y factibilidad"
-        subtitle="Punto 3 de la consigna, recalculado con los datos cargados."
-        keepTogether
-      >
+      <PageHeader view="analisis" />
+      <Panel title="Conclusiones" subtitle="Punto 3 de la consigna, recalculado con los datos actuales." keepTogether>
         <Conclusions scenario={scenario} result={result} />
-      </Section>
-      <Section
-        title="3.1 Primeras órdenes por ítem"
-        subtitle="Semana en que debe emitirse la primera orden de cada ítem para no retrasar la entrega final. Las filas resaltadas son ítems de compra (materias primas)."
-        keepTogether
-      >
-        <FirstOrdersTable result={result} />
-      </Section>
-      <Section
-        title="3.2 Lead times acumulados"
-        subtitle="Tiempo mínimo para obtener cada producto final partiendo de cero. La demanda dentro de esa ventana depende del stock y de las órdenes ya emitidas."
-        keepTogether
-      >
-        <LeadTimeTable scenario={scenario} />
-      </Section>
-      <Section title="Alertas del cálculo" keepTogether>
-        <IssueList
-          issues={result.alerts}
-          labels={{ error: 'Riesgo' }}
-          empty="Sin alertas: todas las órdenes pueden emitirse a tiempo."
-        />
-      </Section>
+      </Panel>
+      <div className="two-col">
+        <Panel
+          title="Primeras órdenes por ítem"
+          subtitle="Cuándo hay que emitir la primera orden de cada ítem. Las filas resaltadas son de compra."
+          flush
+          keepTogether
+        >
+          <FirstOrdersTable result={result} />
+        </Panel>
+        <div className="stack">
+          <Panel
+            title="Lead times acumulados"
+            subtitle="La demanda dentro de esa ventana solo se cubre con stock o con órdenes ya emitidas."
+            flush
+            keepTogether
+          >
+            <LeadTimeTable scenario={scenario} />
+          </Panel>
+          <Panel title="Alertas del cálculo" keepTogether>
+            <IssueList
+              issues={result.alerts}
+              labels={{ error: 'Riesgo' }}
+              empty="Sin alertas: todas las órdenes pueden emitirse a tiempo."
+            />
+          </Panel>
+        </div>
+      </div>
     </>
   );
 }

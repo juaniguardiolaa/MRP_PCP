@@ -5,12 +5,14 @@
 
 @media print {
   :root {
-    font-size: 11px;
+    font-size: 10.5px;
     background: #fff;
   }
 
   body,
-  .app {
+  .app-shell,
+  .main {
+    display: block;
     background: #fff;
   }
 
@@ -20,41 +22,88 @@
   }
 
   .no-print,
-  .section-actions,
-  .tab-badge {
+  .sidebar,
+  .shellbar,
+  .sidebar-backdrop,
+  .skip-link,
+  .help-panel,
+  .panel-actions .btn {
     display: none !important;
   }
 
-  .content {
+  .page {
     max-width: none;
     padding: 0;
+    gap: 10px;
   }
 
-  .section,
+  .panel,
   .report-cover,
-  .card {
+  .kpi,
+  .sheet-header {
     box-shadow: none;
   }
 
-  .section {
-    padding: 10px 12px;
-    margin-bottom: 10px;
+  .panel-header {
+    padding: 8px 10px;
+  }
+
+  .panel-body {
+    padding: 10px;
   }
 
   .table-scroll {
     overflow: visible;
   }
 
+  .report {
+    gap: 10px;
+  }
+
+  .report-part {
+    gap: 10px;
+  }
+
   .report-part + .report-part {
     break-before: page;
   }
 
-  .report-cover {
-    padding: 10px 12px;
-    margin-bottom: 10px;
+  .report-title {
+    break-after: avoid;
   }
 
-  /* Los árboles de producto se achican para entrar lado a lado. */
+  .panel-keep,
+  .mrp-record,
+  .tree-card,
+  .gantt-row,
+  .data-table tr,
+  .verdict {
+    break-inside: avoid;
+  }
+
+  .panel-header {
+    break-after: avoid;
+  }
+
+  .mrp-stack {
+    gap: 12px;
+  }
+
+  .sticky-col {
+    position: static;
+  }
+
+  .gantt {
+    min-width: 0 !important;
+  }
+
+  .data-table th,
+  .data-table td {
+    height: auto;
+    padding: 3px 8px;
+  }
+
+  /* Los árboles se achican para entrar lado a lado. */
   .tree-grid {
     flex-wrap: nowrap;
   }
@@ -68,35 +117,5 @@
     width: 100%;
     height: auto;
     max-height: 70mm;
-  }
-
-  .grid-table th,
-  .grid-table td {
-    padding: 2px 6px;
-  }
-
-  .section-keep,
-  .mrp-table,
-  .tree-card,
-  .gantt-row,
-  .grid-table tr,
-  .conclusions {
-    break-inside: avoid;
-  }
-
-  .section-header {
-    break-after: avoid;
-  }
-
-  .mrp-list {
-    gap: 8px;
-  }
-
-  .sticky-col {
-    position: static;
-  }
-
-  .gantt {
-    min-width: 0 !important;
   }
 }

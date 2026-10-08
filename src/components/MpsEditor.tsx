@@ -3,72 +3,67 @@ import { endItems, usableBomLines } from '../domain/bom';
 import type { Scenario } from '../domain/types';
 import { MAX_HORIZON } from '../domain/validation';
 import type { ScenarioAction } from '../state/useScenario';
-import { NumberInput, Section, fmt, weekNumbers } from './common';
+import { NumberInput } from './common';
+import { PageHeader } from './shell/PageHeader';
+import { Panel } from './ui/Panel';
+import { Term } from './ui/Term';
+import { WeekGrid } from './ui/WeekGrid';
 
-export function MpsEditor({
-  scenario,
-  dispatch,
-}: {
-  scenario: Scenario;
-  dispatch: Dispatch<ScenarioAction>;
-}) {
-  const weeks = weekNumbers(scenario.horizon);
+export function MpsEditor({ scenario, dispatch }: { scenario: Scenario; dispatch: Dispatch<ScenarioAction> }) {
   const products = endItems(scenario.items, usableBomLines(scenario.items, scenario.bom));
+  const totals = Array.from({ length: scenario.horizon }, (_, t) =>
+    products.reduce((sum, p) => sum + (p.demand[t] ?? 0), 0),
+  );
 
   return (
-    <Section
-      title="Plan Maestro de Producción (PMP)"
-      subtitle="Necesidades brutas de los productos finales (pedidos de clientes + pronóstico) por semana. Los productos finales son los ítems que no son componente de ningún otro."
-      actions={
-        <label className="inline-field">
-          Horizonte (semanas)
-          <NumberInput
-            label="Horizonte de planificación en semanas"
-            value={scenario.horizon}
-            min={1}
-            onChange={(v) =>
-              dispatch({ type: 'setHorizon', horizon: Math.min(MAX_HORIZON, Math.max(1, Math.round(v))) })
-            }
+    <>
+      <PageHeader
+        view="pmp"
+        actions={
+          <label className="inline-field" htmlFor="horizon">
+            Horizonte
+            <span className="input-unit">
+              <NumberInput
+                id="horizon"
+                label="Horizonte de planificación en semanas"
+                value={scenario.horizon}
+                min={1}
+                onChange={(v) =>
+                  dispatch({ type: 'setHorizon', horizon: Math.min(MAX_HORIZON, Math.max(1, Math.round(v))) })
+                }
+              />
+              <span className="unit">semanas</span>
+            </span>
+          </label>
+        }
+      />
+      <Panel
+        title={
+          <>
+            Necesidades brutas de productos finales <Term id="NB" />
+          </>
+        }
+        subtitle="Pedidos de clientes más pronóstico, en unidades por semana."
+      >
+        {products.length ? (
+          <WeekGrid
+            caption="Plan maestro de producción"
+            horizon={scenario.horizon}
+            rows={[
+              ...products.map((p) => ({
+                id: p.code,
+                label: `${p.code} · ${p.description}`,
+                values: p.demand,
+                onChange: (week: number, value: number) =>
+                  dispatch({ type: 'setWeekValue', code: p.code, field: 'demand', week, value }),
+              })),
+              { id: 'total', label: 'Total semanal', values: totals },
+            ]}
           />
-        </label>
-      }
-    >
-      <div className="table-scroll">
-        <table className="grid-table">
-          <thead>
-            <tr>
-              <th className="sticky-col">Producto</th>
-              {weeks.map((w) => (
-                <th key={w}>S{w}</th>
-              ))}
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.code}>
-                <th className="sticky-col row-head">
-                  {p.code}
-                  <span className="muted small"> {p.description}</span>
-                </th>
-                {weeks.map((w) => (
-                  <td key={w}>
-                    <NumberInput
-                      label={`PMP de ${p.code} en semana ${w}`}
-                      value={p.demand[w - 1] ?? 0}
-                      onChange={(value) =>
-                        dispatch({ type: 'setWeekValue', code: p.code, field: 'demand', week: w - 1, value })
-                      }
-                    />
-                  </td>
-                ))}
-                <td className="total">{fmt(p.demand.slice(0, scenario.horizon).reduce((a, b) => a + b, 0))}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {products.length === 0 && <p className="muted">No hay productos finales: revisá la lista de materiales.</p>}
-    </Section>
+        ) : (
+          <p className="muted">No hay productos finales: revisá la lista de materiales.</p>
+        )}
+      </Panel>
+    </>
   );
 }

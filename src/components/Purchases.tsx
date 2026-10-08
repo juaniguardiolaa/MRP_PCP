@@ -1,33 +1,48 @@
+import { Info } from 'lucide-react';
 import { describeLotPolicy } from '../domain/lotSizing';
 import { orderSummaryByItem } from '../domain/reports';
 import type { MrpResult } from '../domain/types';
-import { Section, fmt } from './common';
-import { OrdersByWeekTable } from './OrderPlan';
+import { fmt } from './common';
+import { OrdersTable } from './OrderPlan';
+import { PageHeader } from './shell/PageHeader';
+import { ItemCode } from './ui/Chips';
+import { Panel } from './ui/Panel';
 
 export function PurchaseTotals({ result }: { result: MrpResult }) {
   const rows = orderSummaryByItem(result).filter((s) => s.type === 'compra');
-  if (!rows.length) return <p className="muted">No hay ítems de compra.</p>;
+  const descriptions = new Map(result.records.map((r) => [r.code, r.description]));
+  if (!rows.length) return <p className="muted panel-pad">No hay ítems de compra.</p>;
   return (
     <div className="table-scroll">
-      <table className="grid-table">
+      <table className="data-table">
         <thead>
           <tr>
-            <th>Ítem</th>
-            <th>Política de loteo</th>
-            <th>Órdenes</th>
-            <th>Cantidad total</th>
-            <th>Primera emisión</th>
-            <th>Primera cantidad</th>
+            <th scope="col">Ítem</th>
+            <th scope="col">Política de loteo</th>
+            <th scope="col" className="num">
+              Solicitudes
+            </th>
+            <th scope="col" className="num">
+              Cantidad total
+            </th>
+            <th scope="col">Primera emisión</th>
+            <th scope="col" className="num">
+              Primera cantidad
+            </th>
           </tr>
         </thead>
         <tbody>
           {rows.map((s) => (
             <tr key={s.itemCode} className={s.pastDueCount ? 'row-late' : undefined}>
-              <th className="row-head">{s.itemCode}</th>
+              <th scope="row">
+                <ItemCode code={s.itemCode} /> <span className="muted">{descriptions.get(s.itemCode)}</span>
+              </th>
               <td>{describeLotPolicy(s.lotPolicy)}</td>
               <td className="num">{s.orderCount}</td>
-              <td className="num">{fmt(s.totalQuantity)}</td>
-              <td className="num">{s.firstReleaseWeek === null ? '—' : `S${s.firstReleaseWeek}`}</td>
+              <td className="num strong">{fmt(s.totalQuantity)}</td>
+              <td className={s.pastDueCount ? 'text-critical' : undefined}>
+                {s.firstReleaseWeek === null ? '—' : `S${s.firstReleaseWeek}`}
+              </td>
               <td className="num">{s.orderCount ? fmt(s.firstQuantity) : '—'}</td>
             </tr>
           ))}
@@ -37,23 +52,36 @@ export function PurchaseTotals({ result }: { result: MrpResult }) {
   );
 }
 
+export function EoqNote() {
+  return (
+    <p className="callout">
+      <Info size={16} aria-hidden />
+      <span>
+        <strong>Cantidad económica de pedido:</strong> el cálculo por costos (EOQ, costo total mínimo y costo unitario
+        mínimo) llega en la próxima etapa. Por ahora la cantidad sugerida es la que surge de la política de loteo de cada
+        ítem.
+      </span>
+    </p>
+  );
+}
+
 export function Purchases({ result }: { result: MrpResult }) {
+  const purchases = result.orders.filter((o) => o.type === 'compra');
+  const units = purchases.reduce((n, o) => n + o.quantity, 0);
   return (
     <>
-      <Section
-        title="Sugerencia de compras"
-        subtitle="Órdenes de compra a emitir por semana para los ítems de abastecimiento externo, con la cantidad que resulta de la política de loteo de cada ítem."
+      <PageHeader view="compras" />
+      <Panel
+        title="Solicitudes de compra sugeridas"
+        subtitle={`${purchases.length} solicitudes por ${fmt(units)} unidades en total, agrupadas por semana de emisión.`}
+        flush
       >
-        <OrdersByWeekTable result={result} type="compra" />
-        <p className="note">
-          <strong>Cantidad económica de pedido:</strong> el cálculo por costos (EOQ, costo total mínimo y costo
-          unitario mínimo) queda para la próxima etapa. Por ahora la cantidad sugerida es la que surge de la política
-          de loteo cargada (L4L o lote fijo).
-        </p>
-      </Section>
-      <Section title="Totales por ítem de compra" subtitle="Resumen de las compras del horizonte." keepTogether>
+        <OrdersTable result={result} type="compra" />
+      </Panel>
+      <EoqNote />
+      <Panel title="Totales por ítem de compra" subtitle="Resumen de las compras del horizonte." flush keepTogether>
         <PurchaseTotals result={result} />
-      </Section>
+      </Panel>
     </>
   );
 }
