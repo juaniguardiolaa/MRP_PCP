@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { CircleCheck, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Analysis } from './components/Analysis';
 import { BomEditor } from './components/BomEditor';
 import { IssueList } from './components/common';
-import { ConfirmButton } from './components/ConfirmButton';
-import { ItemsEditor } from './components/ItemsEditor';
+import { Dashboard } from './components/Dashboard';
+import { ItemMaster } from './components/ItemMaster';
 import { MpsEditor } from './components/MpsEditor';
 import { MrpTables } from './components/MrpTables';
 import { OrderPlan } from './components/OrderPlan';
@@ -11,83 +12,120 @@ import { ProductStructure } from './components/ProductStructure';
 import { Purchases } from './components/Purchases';
 import { Report } from './components/Report';
 import { ScenarioTransfer, type TransferMode } from './components/ScenarioTransfer';
+import { PageHeader } from './components/shell/PageHeader';
+import { ShellBar, type PlanStatus } from './components/shell/ShellBar';
+import { Sidebar } from './components/shell/Sidebar';
+import { GlossaryDrawer } from './components/ui/GlossaryDrawer';
+import { Panel } from './components/ui/Panel';
 import { runMrp } from './domain/mrpEngine';
 import { IS_ARTIFACT } from './env';
+import { isViewId, VIEWS, type ViewId } from './navigation';
 import { useScenario } from './state/useScenario';
 
-const TABS = [
-  { id: 'pmp', label: 'Plan maestro', group: 'Entradas' },
-  { id: 'items', label: 'Inventario e ítems', group: 'Entradas' },
-  { id: 'bom', label: 'Lista de materiales', group: 'Entradas' },
-  { id: 'estructura', label: 'Estructura', group: 'Resultados' },
-  { id: 'tablas', label: 'Tablas MRP', group: 'Resultados' },
-  { id: 'plan', label: 'Diagrama de pedidos', group: 'Resultados' },
-  { id: 'compras', label: 'Compras', group: 'Resultados' },
-  { id: 'analisis', label: 'Análisis', group: 'Resultados' },
-  { id: 'informe', label: 'Informe', group: 'Resultados' },
-] as const;
+const VIEW_KEY = 'mrp-pcp:view';
 
-type TabId = (typeof TABS)[number]['id'];
-const INPUT_TABS: TabId[] = ['pmp', 'items', 'bom'];
-const TAB_KEY = 'mrp-pcp:tab';
-
-function initialTab(): TabId {
+function initialView(): ViewId {
+  const hash = window.location.hash.slice(1);
+  if (isViewId(hash)) return hash;
   try {
-    const saved = localStorage.getItem(TAB_KEY);
-    if (TABS.some((t) => t.id === saved)) return saved as TabId;
+    const saved = localStorage.getItem(VIEW_KEY);
+    if (saved && isViewId(saved)) return saved;
   } catch {
     // sin almacenamiento
   }
-  return 'pmp';
+  return 'inicio';
 }
 
 export default function App() {
   const [scenario, dispatch] = useScenario();
   const result = useMemo(() => runMrp(scenario), [scenario]);
-  const [tab, setTab] = useState<TabId>(initialTab);
+  const [view, setView] = useState<ViewId>(initialView);
+  const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [printPending, setPrintPending] = useState(false);
   const [transfer, setTransfer] = useState<TransferMode | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // La vista vive en el #hash: el botón "atrás" funciona y se puede enlazar a una pantalla.
   useEffect(() => {
+    const onHash = () => {
+      const hash = window.location.hash.slice(1);
+      if (isViewId(hash)) setView(hash);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  useEffect(() => {
+    if (window.location.hash.slice(1) !== view) window.location.hash = view;
     try {
-      localStorage.setItem(TAB_KEY, tab);
+      localStorage.setItem(VIEW_KEY, view);
     } catch {
       // sin almacenamiento
     }
-  }, [tab]);
+  }, [view]);
 
   useEffect(() => {
-    if (!printPending || tab !== 'informe') return;
+    if (!printPending || view !== 'informe') return;
     const id = window.setTimeout(() => {
       window.print();
       setPrintPending(false);
-    }, 100);
+    }, 150);
     return () => window.clearTimeout(id);
-  }, [printPending, tab]);
+  }, [printPending, view]);
 
-  const blocked = result.issues.some((i) => i.severity === 'error');
-  const lateCount = result.alerts.filter((a) => a.severity === 'error').length;
+  const navigate = useCallback((next: ViewId, item?: string) => {
+    if (item) setSelectedItem(item);
+    setView(next);
+    setMenuOpen(false);
+    window.scrollTo({ top: 0 });
+  }, []);
 
-  const renderTab = () => {
-    if (tab === 'pmp') return <MpsEditor scenario={scenario} dispatch={dispatch} />;
-    if (tab === 'items') return <ItemsEditor scenario={scenario} dispatch={dispatch} />;
-    if (tab === 'bom') return <BomEditor scenario={scenario} dispatch={dispatch} />;
-    if (blocked) {
+  const closeGlossary = useCallback(() => setGlossaryOpen(false), []);
+
+  const errors = result.issues.filter((i) => i.severity === 'error');
+  const blocked = errors.length > 0;
+  const pastDue = result.orders.filter((o) => o.pastDue).length;
+
+  const status: PlanStatus = blocked
+    ? { tone: 'critical', text: `Datos con errores (${errors.length})` }
+    : pastDue
+      ? { tone: 'critical', text: `${result.orders.length} órdenes · ${pastDue} atrasada${pastDue > 1 ? 's' : ''}` }
+      : { tone: 'ok', text: `Plan calculado · ${result.orders.length} órdenes` };
+
+  const renderView = () => {
+    if (view === 'inicio') return <Dashboard scenario={scenario} result={result} onNavigate={navigate} />;
+    if (view === 'pmp') return <MpsEditor scenario={scenario} dispatch={dispatch} />;
+    if (view === 'items')
       return (
-        <div className="card blocked">
-          <h2>No se puede calcular el MRP</h2>
-          <p>Corregí los errores de los datos de entrada para ver los resultados.</p>
-          <IssueList issues={result.issues.filter((i) => i.severity === 'error')} />
-        </div>
+        <ItemMaster
+          scenario={scenario}
+          result={result}
+          dispatch={dispatch}
+          selected={selectedItem}
+          onSelect={setSelectedItem}
+          onNavigate={navigate}
+        />
+      );
+    if (view === 'bom')
+      return <BomEditor scenario={scenario} dispatch={dispatch} issues={result.issues.filter((i) => !i.itemCode)} />;
+    if (blocked && VIEWS[view].needsResult) {
+      return (
+        <>
+          <PageHeader view={view} help={false} />
+          <Panel title="No se puede calcular el MRP" subtitle="Corregí estos datos de entrada para ver los resultados." className="panel-critical">
+            <IssueList issues={errors} />
+          </Panel>
+        </>
       );
     }
-    switch (tab) {
+    switch (view) {
       case 'estructura':
         return <ProductStructure scenario={scenario} result={result} />;
-      case 'tablas':
-        return <MrpTables result={result} />;
-      case 'plan':
+      case 'explosion':
+        return <MrpTables result={result} selected={selectedItem} onSelect={setSelectedItem} onNavigate={navigate} />;
+      case 'ordenes':
         return <OrderPlan result={result} />;
       case 'compras':
         return <Purchases result={result} />;
@@ -99,121 +137,85 @@ export default function App() {
   };
 
   return (
-    <div className="app">
-      <header className="app-header no-print">
-        <div className="brand">
-          <span className="brand-mark" aria-hidden>
-            MRP
-          </span>
-          <div>
-            <h1>Sistema MRP I</h1>
-            <p>Planificación y Control de la Producción · Ingeniería Industrial · UTN FRH</p>
-          </div>
-        </div>
-        <div className="header-actions">
-          <label className="scenario-name">
-            <span>Escenario</span>
-            <input
-              className="text-input"
-              value={scenario.name}
-              onChange={(e) => dispatch({ type: 'setName', name: e.currentTarget.value })}
-            />
-          </label>
-          <ConfirmButton
-            className="btn btn-ghost"
-            label="Restaurar ejercicio"
-            question="¿Volver a los datos de la consigna? Se pierden los cambios no exportados."
-            confirmLabel="Restaurar"
-            onConfirm={() => {
-              dispatch({ type: 'reset' });
-              setNotice('Se restauraron los datos del ejercicio.');
-            }}
-          />
-          <button
-            type="button"
-            className="btn btn-ghost"
-            aria-pressed={transfer === 'export'}
-            onClick={() => setTransfer(transfer === 'export' ? null : 'export')}
-          >
-            Exportar
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            aria-pressed={transfer === 'import'}
-            onClick={() => setTransfer(transfer === 'import' ? null : 'import')}
-          >
-            Importar
-          </button>
-          {!IS_ARTIFACT && (
-            <button
-              type="button"
-              className="btn"
-              disabled={blocked}
-              onClick={() => {
-                setTab('informe');
-                setPrintPending(true);
-              }}
-            >
-              Imprimir / PDF
-            </button>
-          )}
-        </div>
-      </header>
+    <div className={menuOpen ? 'app-shell menu-open' : 'app-shell'}>
+      <a className="skip-link" href="#contenido">
+        Saltar al contenido
+      </a>
+      <Sidebar
+        view={view}
+        onNavigate={navigate}
+        onHelp={() => {
+          setGlossaryOpen(true);
+          setMenuOpen(false);
+        }}
+        onClose={() => setMenuOpen(false)}
+        badges={{
+          analisis: pastDue,
+          items: result.issues.filter((i) => i.severity === 'error' && i.itemCode).length,
+          bom: result.issues.filter((i) => i.severity === 'error' && !i.itemCode).length,
+        }}
+      />
+      {menuOpen && (
+        <button type="button" className="sidebar-backdrop no-print" aria-label="Cerrar menú" onClick={() => setMenuOpen(false)} />
+      )}
 
-      <nav className="tabs no-print" aria-label="Secciones">
-        {(['Entradas', 'Resultados'] as const).map((group) => (
-          <div key={group} className="tab-group">
-            <span className="tab-group-label">{group}</span>
-            {TABS.filter((t) => t.group === group).map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={`tab ${tab === t.id ? 'tab-active' : ''}`}
-                aria-current={tab === t.id ? 'page' : undefined}
-                onClick={() => setTab(t.id)}
-              >
-                {t.label}
-                {t.id === 'analisis' && lateCount > 0 && <span className="tab-badge">{lateCount}</span>}
+      <div className="main">
+        <ShellBar
+          view={view}
+          scenarioName={scenario.name}
+          onRename={(name) => dispatch({ type: 'setName', name })}
+          status={status}
+          onStatus={() => navigate(blocked ? 'items' : 'analisis')}
+          onMenu={() => setMenuOpen(true)}
+          onHelp={() => setGlossaryOpen(true)}
+          onReset={() => {
+            dispatch({ type: 'reset' });
+            setSelectedItem(null);
+            setNotice('Se restauraron los datos del ejercicio.');
+          }}
+          onExport={() => setTransfer(transfer === 'export' ? null : 'export')}
+          onImport={() => setTransfer(transfer === 'import' ? null : 'import')}
+          onPrint={
+            IS_ARTIFACT
+              ? undefined
+              : () => {
+                  navigate('informe');
+                  setPrintPending(true);
+                }
+          }
+          printDisabled={blocked}
+          transfer={transfer}
+        />
+
+        <main className="page" id="contenido" tabIndex={-1}>
+          {notice && (
+            <p className="toast no-print" role="status">
+              <CircleCheck size={16} aria-hidden />
+              <span>{notice}</span>
+              <button type="button" className="icon-btn" aria-label="Cerrar aviso" onClick={() => setNotice(null)}>
+                <X size={16} />
               </button>
-            ))}
-          </div>
-        ))}
-      </nav>
+            </p>
+          )}
+          {transfer && (
+            <ScenarioTransfer
+              key={transfer}
+              mode={transfer}
+              scenario={scenario}
+              onClose={() => setTransfer(null)}
+              onImport={(s) => {
+                dispatch({ type: 'load', scenario: s });
+                setTransfer(null);
+                setSelectedItem(null);
+                setNotice(`Se importó el escenario "${s.name}".`);
+              }}
+            />
+          )}
+          {renderView()}
+        </main>
+      </div>
 
-      <main className="content">
-        {notice && (
-          <p className="notice no-print" role="status">
-            {notice}
-            <button type="button" className="link-btn" onClick={() => setNotice(null)}>
-              Cerrar
-            </button>
-          </p>
-        )}
-        {transfer && (
-          <ScenarioTransfer
-            key={transfer}
-            mode={transfer}
-            scenario={scenario}
-            onClose={() => setTransfer(null)}
-            onImport={(s) => {
-              dispatch({ type: 'load', scenario: s });
-              setTransfer(null);
-              setNotice(`Se importó el escenario "${s.name}".`);
-            }}
-          />
-        )}
-        {INPUT_TABS.includes(tab) && result.issues.length > 0 && (
-          <div className="no-print">
-            <IssueList issues={result.issues} />
-          </div>
-        )}
-        {renderTab()}
-      </main>
-
-      <footer className="app-footer no-print">
-        Los datos se guardan automáticamente en este navegador. Usá “Exportar” para guardar el escenario en un archivo.
-      </footer>
+      {glossaryOpen && <GlossaryDrawer onClose={closeGlossary} />}
     </div>
   );
 }

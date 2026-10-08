@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { ejercicioOct26 } from '../../data/ejercicioOct26';
 import { applyLotPolicy, describeLots } from '../lotSizing';
 import { runMrp } from '../mrpEngine';
-import { feasibilityAnalysis, orderSummaryByItem, ordersByReleaseWeek } from '../reports';
+import {
+  dashboardSummary,
+  feasibilityAnalysis,
+  numberOrders,
+  orderSummaryByItem,
+  ordersByReleaseWeek,
+  ordersPerWeek,
+} from '../reports';
 
 const ctx = (netRequirement: number) => ({
   period: 0,
@@ -63,5 +70,47 @@ describe('reportes del ejercicio', () => {
         '(10 u.; su primera orden a tiempo es en S3); D en S1 (100 u.); E en S1 (50 u.); F en S2 (100 u.).',
     );
     expect(analysis.conclusions.some((c) => c.includes('riesgo de insatisfacción'))).toBe(true);
+  });
+});
+
+describe('panel de inicio', () => {
+  const scenario = ejercicioOct26();
+  const result = runMrp(scenario);
+
+  it('resume los indicadores del ejercicio', () => {
+    const s = dashboardSummary(scenario, result);
+    expect(s).toMatchObject({
+      itemCount: 9,
+      productCount: 2,
+      horizon: 12,
+      bomLineCount: 12,
+      levelCount: 4,
+      scheduledReceiptCount: 5,
+      orderCount: 59,
+      manufacturingOrders: 34,
+      purchaseOrders: 25,
+      purchaseUnits: 3660,
+      pastDueCount: 1,
+    });
+    expect(s.critical).toMatchObject({ itemCode: 'B', weeks: 7 });
+    expect(s.firstWeekOrders.map((o) => o.itemCode)).toEqual(['I', 'A', 'G', 'D', 'H', 'E']);
+  });
+
+  it('cuenta las órdenes por semana de emisión', () => {
+    const load = ordersPerWeek(result);
+    expect(load).toHaveLength(13);
+    expect(load[0]).toEqual({ week: 0, fabricacion: 0, compra: 1 });
+    expect(load[1]).toEqual({ week: 1, fabricacion: 3, compra: 2 });
+    expect(load.reduce((n, w) => n + w.fabricacion + w.compra, 0)).toBe(59);
+  });
+
+  it('numera las órdenes por tipo en orden de emisión', () => {
+    const numbers = numberOrders(result.orders);
+    const of = (code: string, week: number) =>
+      numbers.get(result.orders.find((o) => o.itemCode === code && o.releaseWeek === week)!);
+    expect(of('I', 0)).toBe('OC-001');
+    expect(of('A', 1)).toBe('OF-001');
+    expect(of('D', 1)).toBe('OC-002');
+    expect(new Set(numbers.values()).size).toBe(59);
   });
 });

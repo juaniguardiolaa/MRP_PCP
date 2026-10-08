@@ -13,11 +13,16 @@ const asset = (re, kind) => {
 };
 
 const title = html.match(/<title>(.*?)<\/title>/)?.[1] ?? 'Sistema MRP PCP';
+// Enlaces a Google Fonts (permitidos en claude.ai): se copian tal cual.
+const fontLinks = [...html.matchAll(/<link rel="(?:preconnect|stylesheet)"[^>]*href="https:\/\/fonts\.[^"]+"[^>]*>/g)]
+  .map((m) => m[0])
+  .join('\n');
 const css = asset(/<link rel="stylesheet"[^>]*href="\.\/([^"]+\.css)"/, 'CSS');
 // "</script" dentro del bundle cerraría la etiqueta antes de tiempo.
 const js = asset(/<script type="module"[^>]*src="\.\/([^"]+\.js)"/, 'JS').replaceAll('</script', '<\\/script');
 
 const out = `<title>${title}</title>
+${fontLinks}
 <style>
 ${css}
 </style>

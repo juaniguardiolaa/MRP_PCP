@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 /**
  * Botón con confirmación dentro de la página (en lugar de window.confirm, que no
@@ -13,7 +13,7 @@ export function ConfirmButton({
   ariaLabel,
   title,
 }: {
-  label: string;
+  label: ReactNode;
   question: string;
   confirmLabel: string;
   onConfirm: () => void;

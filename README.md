@@ -25,10 +25,31 @@ npm run build      # genera la versión estática en dist/
 npm run build:artifact  # genera dist-artifact/sistema-mrp.html, un único archivo para publicar en claude.ai
 ```
 
-La app arranca con los datos del ejercicio. Los cambios se guardan automáticamente en el navegador.
+La app arranca con los datos del ejercicio en el **Panel de planificación**. Los cambios se guardan
+automáticamente en el navegador.
+
+### Cómo está organizada
+
+La interfaz sigue el formato de un ERP: una barra lateral con los módulos, una barra superior con el estado
+del plan y las acciones, y un área de trabajo con paneles. La barra lateral ordena las pantallas según los
+cuatro pasos del MRP:
+
+| Paso | Pantallas | Qué se hace |
+| --- | --- | --- |
+| Inicio | Panel de planificación | Indicadores, flujo del MRP con cada caja clickeable, órdenes para emitir en la semana 1, carga de órdenes por semana y alertas. |
+| 1 · Datos maestros | Plan maestro · Ítems e inventario · Lista de materiales | Cargar la demanda de productos finales, la ficha de cada ítem (stock, lead time, loteo, entregas programadas, demanda independiente) y los componentes de cada conjunto. |
+| 2 · Planificación | Estructura de producto · Explosión MRP | Ver los árboles con sus niveles y el registro MRP de cada ítem (NB, RP, D, NN, ROP, EOP). |
+| 3 · Órdenes | Plan de órdenes · Compras sugeridas | Gantt y tabla de órdenes numeradas (OF = fabricación, OC = compra), con filtros; solicitudes de compra por semana. |
+| 4 · Control | Análisis y alertas · Informe | Respuestas al punto 3 de la consigna, lead times acumulados, alertas e informe imprimible. |
+
+Cada pantalla tiene un panel **"Cómo leer esta pantalla"** con los pasos para usarla. Las siglas (NB, NN,
+EOP, LT, L4L…) muestran su definición al pasar el mouse o al llegar con el teclado, y el botón **Ayuda y
+glosario** abre un glosario con buscador y ejemplos del ejercicio. La pantalla actual queda en la dirección
+(`#items`, `#explosion`…), así que el botón "atrás" del navegador funciona.
+
 Desde la barra superior se puede:
 
-- **Restaurar ejercicio:** vuelve a los datos de la consigna, previa confirmación.
+- **Restaurar:** vuelve a los datos de la consigna, previa confirmación.
 - **Exportar:** muestra el escenario en formato JSON para copiarlo o descargarlo como `.json`.
 - **Importar:** carga un escenario desde un archivo `.json` o desde el texto pegado.
 - **Imprimir / PDF:** abre el informe completo y el diálogo de impresión. Para obtener el PDF, elegí
@@ -36,19 +57,6 @@ Desde la barra superior se puede:
 
 La versión publicada en claude.ai no tiene "Imprimir / PDF" ni "Descargar .json", porque ese visor no
 permite imprimir ni descargar archivos. Para el PDF hay que usar la app local o la de GitHub Pages.
-
-### Pantallas
-
-Siguen el esquema "Estructura del Sistema de MRP" de la teoría.
-
-| Entradas | Resultados (entregables del MRP) |
-| --- | --- |
-| **Plan maestro:** necesidades brutas de los productos finales por semana (pedidos de clientes + pronóstico). | **Estructura:** árbol de cada producto con niveles y coeficientes de uso, y los códigos de nivel inferior. |
-| **Inventario e ítems:** stock inicial, entregas programadas por semana, lead time, stock de seguridad, política de loteo y tipo (compra/fabricación). | **Tablas MRP:** registro de cada ítem y reporte de requerimientos brutos y netos. |
-| **Lista de materiales:** relaciones padre → componente con su coeficiente (cambios de ingeniería). | **Diagrama de pedidos:** Gantt de órdenes y calendario de emisiones (también funciona como planificación del inicio de producción). |
-| **Demanda independiente de componentes:** "partes fuera del programa" (repuestos), dentro del detalle de cada ítem. | **Compras:** sugerencia de compras por semana y totales por ítem. |
-| | **Análisis:** respuestas al punto 3 de la consigna y alertas. |
-| | **Informe:** todo lo anterior en formato imprimible. |
 
 ## Lógica de cálculo
 
@@ -124,8 +132,10 @@ src/
   domain/      lógica pura sin React: tipos, BOM, loteo, validación, motor MRP y reportes
   data/        datos del ejercicio
   state/       estado del escenario (autoguardado, importar/exportar)
-  components/  pantallas de la app
-  styles/      estilos de pantalla e impresión
+  components/  pantallas de la app; shell/ (barra lateral, barra superior, encabezados) y ui/ (paneles, chips, glosario)
+  help/        glosario y guías "Cómo leer esta pantalla"
+  navigation.ts  registro de pantallas y pasos del menú
+  styles/      sistema visual (tokens) e impresión
 ```
 
 ## Publicación en GitHub Pages

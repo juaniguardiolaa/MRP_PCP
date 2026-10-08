@@ -171,3 +171,87 @@ export function feasibilityAnalysis(scenario: Scenario, result: MrpResult): Feas
 
   return { firstPurchaseWeek, firstPurchaseItems, pastDueOrders, leadTimes, conclusions };
 }
+
+export interface DashboardSummary {
+  itemCount: number;
+  productCount: number;
+  horizon: number;
+  bomLineCount: number;
+  /** Cantidad de niveles de la estructura (nivel máximo + 1). */
+  levelCount: number;
+  /** Entregas programadas (semanas con RP > 0) dentro del horizonte. */
+  scheduledReceiptCount: number;
+  orderCount: number;
+  manufacturingOrders: number;
+  purchaseOrders: number;
+  purchaseUnits: number;
+  pastDueCount: number;
+  /** Producto con mayor lead time acumulado. */
+  critical: EndItemLeadTime | null;
+  /** Órdenes a emitir en la semana 1, incluidas las atrasadas. */
+  firstWeekOrders: PlannedOrder[];
+}
+
+/** Indicadores del panel de inicio. */
+export function dashboardSummary(scenario: Scenario, result: MrpResult): DashboardSummary {
+  const bom = usableBomLines(scenario.items, scenario.bom);
+  const leadTimes = endItemLeadTimes(scenario);
+  const purchases = result.orders.filter((o) => o.type === 'compra');
+  return {
+    itemCount: scenario.items.length,
+    productCount: endItems(scenario.items, bom).length,
+    horizon: scenario.horizon,
+    bomLineCount: bom.length,
+    levelCount: result.records.reduce((max, r) => Math.max(max, r.level + 1), 0),
+    scheduledReceiptCount: scenario.items.reduce(
+      (n, i) => n + i.scheduledReceipts.slice(0, scenario.horizon).filter((q) => q > 0).length,
+      0,
+    ),
+    orderCount: result.orders.length,
+    manufacturingOrders: result.orders.length - purchases.length,
+    purchaseOrders: purchases.length,
+    purchaseUnits: sum(purchases.map((o) => o.quantity)),
+    pastDueCount: result.orders.filter((o) => o.pastDue).length,
+    critical: leadTimes.reduce<EndItemLeadTime | null>(
+      (best, lt) => (best === null || lt.weeks > best.weeks ? lt : best),
+      null,
+    ),
+    firstWeekOrders: result.orders.filter((o) => o.releaseWeek <= 1),
+  };
+}
+
+export interface WeekLoad {
+  /** Semana de emisión; 0 agrupa las órdenes atrasadas. */
+  week: number;
+  fabricacion: number;
+  compra: number;
+}
+
+/** Cantidad de órdenes a emitir por semana, separadas por tipo (incluye la semana 0). */
+export function ordersPerWeek(result: MrpResult): WeekLoad[] {
+  const weeks: WeekLoad[] = Array.from({ length: result.horizon + 1 }, (_, week) => ({
+    week,
+    fabricacion: 0,
+    compra: 0,
+  }));
+  for (const o of result.orders) {
+    const w = weeks[Math.min(Math.max(0, o.releaseWeek), result.horizon)];
+    w[o.type] += 1;
+  }
+  return weeks;
+}
+
+/**
+ * Número de cada orden, en el orden de emisión: OF-001… para fabricación y OC-001… para
+ * compra. Las claves son los objetos de `orders`.
+ */
+export function numberOrders(orders: PlannedOrder[]): Map<PlannedOrder, string> {
+  const counters: Record<ItemType, number> = { fabricacion: 0, compra: 0 };
+  const prefix: Record<ItemType, string> = { fabricacion: 'OF', compra: 'OC' };
+  return new Map(
+    orders.map((o) => {
+      counters[o.type] += 1;
+      return [o, `${prefix[o.type]}-${String(counters[o.type]).padStart(3, '0')}`];
+    }),
+  );
+}
