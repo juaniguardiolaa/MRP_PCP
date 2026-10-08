@@ -33,6 +33,7 @@ export function ejercicioOct26(): Scenario {
   return {
     name: 'Ejercicio MRP oct. 26',
     horizon: HORIZON,
+    forecastEnabled: true,
     items: [
       item('A', 'Producto A', 20, { 1: 10 }, 1, L4L, [10, 30, 10, 0, 0, 30, 30, 40, 40, 20, 20, 20]),
       item('B', 'Producto B', 40, {}, 2, L4L, [10, 10, 10, 10, 30, 10, 20, 30, 10, 20, 30, 20]),

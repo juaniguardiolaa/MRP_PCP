@@ -138,6 +138,7 @@ describe('Ejemplo de la cátedra (tijera TJ, diapositivas 13–16)', () => {
   const scenario: Scenario = {
     name: 'Tijera',
     horizon: H,
+    forecastEnabled: false,
     items: [
       { ...blank('TJ', 550, 2, 50), demand: [0, 0, 400, 600, 0, 800, 300, 0, 0] },
       blank('D', 500, 1),
@@ -185,6 +186,7 @@ describe('Casos particulares', () => {
     const s: Scenario = {
       name: 't',
       horizon: 3,
+      forecastEnabled: false,
       items: [base({ leadTime: 0, demand: [0, 5, 0] })],
       bom: [],
     };
@@ -197,6 +199,7 @@ describe('Casos particulares', () => {
     const s: Scenario = {
       name: 't',
       horizon: 3,
+      forecastEnabled: false,
       items: [base({ lotPolicy: { kind: 'FIXED', lotSize: 100 }, demand: [0, 310, 30] })],
       bom: [],
     };
@@ -209,6 +212,7 @@ describe('Casos particulares', () => {
     const s: Scenario = {
       name: 't',
       horizon: 3,
+      forecastEnabled: false,
       items: [
         base({ code: 'P', leadTime: 0, demand: [0, 0, 4] }),
         base({ code: 'Q', leadTime: 0, demand: [0, 0, 1] }),
@@ -226,6 +230,7 @@ describe('Casos particulares', () => {
     const s: Scenario = {
       name: 't',
       horizon: 3,
+      forecastEnabled: false,
       items: [base({ code: 'P', leadTime: 2, demand: [5, 0, 0] }), base({ code: 'K', leadTime: 0 })],
       bom: [{ parent: 'P', child: 'K', quantity: 2 }],
     };
@@ -237,6 +242,7 @@ describe('Casos particulares', () => {
     const s: Scenario = {
       name: 't',
       horizon: 3,
+      forecastEnabled: false,
       items: [base({ code: 'P' }), base({ code: 'K' })],
       bom: [
         { parent: 'P', child: 'K', quantity: 1 },

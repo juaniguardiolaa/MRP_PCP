@@ -23,9 +23,10 @@ export const PAGE_HELP: Record<ViewId, PageHelp> = {
     steps: [
       'Cada fila es un producto final (un ítem que no es componente de otro).',
       'Escribí en cada semana cuántas unidades se necesitan entregar. Las celdas vacías valen 0.',
-      'El horizonte define cuántas semanas abarca el plan.',
+      'El horizonte define cuántas semanas abarca el plan. Si lo ampliás, las semanas nuevas se completan con un pronóstico por regresión lineal (marcadas con P).',
+      'Si escribís un valor en una semana pronosticada, ese valor reemplaza al pronóstico. El interruptor "Pronóstico automático" lo apaga.',
     ],
-    terms: ['PMP', 'NB', 'DEM_IND'],
+    terms: ['PMP', 'NB', 'DEM_IND', 'PRONOSTICO', 'R2'],
   },
   items: {
     steps: [

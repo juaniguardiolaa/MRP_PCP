@@ -1,9 +1,11 @@
 import { endItems, resolveItemType, usableBomLines } from '../domain/bom';
+import type { ForecastPlan } from '../domain/forecast';
 import { describeLotPolicy } from '../domain/lotSizing';
 import type { MrpResult, Scenario } from '../domain/types';
 import { IS_ARTIFACT } from '../env';
 import { Conclusions, FirstOrdersTable, LeadTimeTable } from './Analysis';
 import { IssueList, TYPE_LABEL, fmt, weekNumbers } from './common';
+import { ForecastLegend, ForecastPanel, forecastCell } from './MpsEditor';
 import { MrpLegend, MrpTable, RequirementsSummaryTable } from './MrpTables';
 import { GanttLegend, OrderGantt, OrdersTable } from './OrderPlan';
 import { LevelTable, TreeGallery, TreeLegend } from './ProductStructure';
@@ -12,7 +14,7 @@ import { PageHeader } from './shell/PageHeader';
 import { ItemCode } from './ui/Chips';
 import { Panel } from './ui/Panel';
 
-function InputSummary({ scenario }: { scenario: Scenario }) {
+function InputSummary({ scenario, forecast }: { scenario: Scenario; forecast: ForecastPlan | null }) {
   const bom = usableBomLines(scenario.items, scenario.bom);
   const weeks = weekNumbers(scenario.horizon);
   const receipts = (series: number[]) =>
@@ -24,36 +26,59 @@ function InputSummary({ scenario }: { scenario: Scenario }) {
 
   return (
     <>
-      <Panel title="Plan maestro de producción" subtitle={`Necesidades brutas por semana. Horizonte de ${scenario.horizon} semanas.`} flush keepTogether>
+      <Panel
+        title="Plan maestro de producción"
+        subtitle={
+          `Necesidades brutas por semana. Horizonte de ${scenario.horizon} semanas.` +
+          (forecast ? ` S${forecast.from}–S${forecast.to} (P): pronóstico por regresión lineal.` : '')
+        }
+        flush
+        keepTogether
+      >
         <div className="table-scroll">
           <table className="data-table">
             <thead>
               <tr>
                 <th scope="col">Producto</th>
                 {weeks.map((w) => (
-                  <th key={w} scope="col" className="num">
+                  <th key={w} scope="col" className={forecast && w >= forecast.from ? 'num col-forecast' : 'num'}>
                     S{w}
+                    {forecast && w >= forecast.from && <span className="forecast-tag">P</span>}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {endItems(scenario.items, bom).map((p) => (
-                <tr key={p.code}>
-                  <th scope="row">
-                    <ItemCode code={p.code} />
-                  </th>
-                  {weeks.map((w) => (
-                    <td key={w} className="num">
-                      {fmt(p.demand[w - 1] ?? 0)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+              {endItems(scenario.items, bom).map((p) => {
+                const cell = forecastCell(forecast, p.code);
+                return (
+                  <tr key={p.code}>
+                    <th scope="row">
+                      <ItemCode code={p.code} />
+                    </th>
+                    {weeks.map((w) => (
+                      <td key={w} className={['num', cell.cellClass(w)].filter(Boolean).join(' ')}>
+                        {fmt(p.demand[w - 1] ?? 0)}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </Panel>
+
+      {forecast && (
+        <Panel
+          title="Pronóstico por regresión lineal"
+          subtitle={`Recta ajustada a S1–S${forecast.base} de cada producto.`}
+          actions={<ForecastLegend />}
+          keepTogether
+        >
+          <ForecastPanel scenario={scenario} plan={forecast} />
+        </Panel>
+      )}
 
       <Panel title="Inventario, lead times y políticas de loteo" flush keepTogether>
         <div className="table-scroll">
@@ -113,7 +138,15 @@ function InputSummary({ scenario }: { scenario: Scenario }) {
   );
 }
 
-export function Report({ scenario, result }: { scenario: Scenario; result: MrpResult }) {
+export function Report({
+  scenario,
+  result,
+  forecast,
+}: {
+  scenario: Scenario;
+  result: MrpResult;
+  forecast: ForecastPlan | null;
+}) {
   const today = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   return (
     <>
@@ -145,7 +178,7 @@ export function Report({ scenario, result }: { scenario: Scenario; result: MrpRe
 
         <section className="report-part">
           <h2 className="report-title">1. Datos de entrada</h2>
-          <InputSummary scenario={scenario} />
+          <InputSummary scenario={scenario} forecast={forecast} />
         </section>
 
         <section className="report-part">

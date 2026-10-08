@@ -1,5 +1,7 @@
 import { useEffect, useReducer } from 'react';
 import { ejercicioOct26 } from '../data/ejercicioOct26';
+import { endItems, usableBomLines } from '../domain/bom';
+import { firmDemandWeeks } from '../domain/forecast';
 import type { BomLine, Item, Scenario } from '../domain/types';
 import { loadStoredScenario, storeScenario } from './scenarioIO';
 
@@ -16,6 +18,8 @@ export type ScenarioAction =
   | { type: 'addBomLine'; line: BomLine }
   | { type: 'updateBomLine'; index: number; patch: Partial<BomLine> }
   | { type: 'removeBomLine'; index: number }
+  | { type: 'setForecastEnabled'; enabled: boolean }
+  | { type: 'clearForecastOverrides' }
   | { type: 'load'; scenario: Scenario }
   | { type: 'reset' };
 
@@ -55,13 +59,23 @@ export function scenarioReducer(s: Scenario, a: ScenarioAction): Scenario {
         bom: s.bom.map((l) => ({ ...l, parent: rename(l.parent), child: rename(l.child) })),
       };
     }
-    case 'setWeekValue':
+    case 'setWeekValue': {
+      // Con el pronóstico activo, lo que se escribe después de la serie cargada de un
+      // producto final reemplaza al pronóstico sin alterar la serie de la regresión.
+      const isFinal = endItems(s.items, usableBomLines(s.items, s.bom)).some((i) => i.code === a.code);
+      if (a.field === 'demand' && s.forecastEnabled && isFinal && a.week >= firmDemandWeeks(s) && firmDemandWeeks(s) > 0) {
+        return mapItem(s, a.code, (i) => ({
+          ...i,
+          forecastOverrides: { ...i.forecastOverrides, [a.week]: a.value },
+        }));
+      }
       return mapItem(s, a.code, (i) => {
         const series = [...i[a.field]];
         while (series.length <= a.week) series.push(0);
         series[a.week] = a.value;
         return { ...i, [a.field]: series };
       });
+    }
     case 'addItem': {
       const code = nextItemCode(s.items);
       const item: Item = {
@@ -89,6 +103,18 @@ export function scenarioReducer(s: Scenario, a: ScenarioAction): Scenario {
       return { ...s, bom: s.bom.map((l, i) => (i === a.index ? { ...l, ...a.patch } : l)) };
     case 'removeBomLine':
       return { ...s, bom: s.bom.filter((_, i) => i !== a.index) };
+    case 'setForecastEnabled':
+      return { ...s, forecastEnabled: a.enabled };
+    case 'clearForecastOverrides':
+      return {
+        ...s,
+        items: s.items.map((i) => {
+          if (!i.forecastOverrides) return i;
+          const copy = { ...i };
+          delete copy.forecastOverrides;
+          return copy;
+        }),
+      };
     case 'load':
       return a.scenario;
     case 'reset':

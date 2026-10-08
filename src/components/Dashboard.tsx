@@ -4,10 +4,11 @@ import {
   dashboardSummary,
   numberOrders,
   ordersPerWeek,
-  trailingEmptyDemand,
   type DashboardSummary,
   type WeekLoad,
+  type WeekRange,
 } from '../domain/reports';
+import type { ForecastPlan } from '../domain/forecast';
 import type { Issue, MrpResult, Scenario } from '../domain/types';
 import type { ViewId } from '../navigation';
 import { IssueList, fmt } from './common';
@@ -56,9 +57,13 @@ function FlowArrow() {
 }
 
 /** Esquema "Estructura del Sistema de MRP": entradas → proceso → entregables. */
-function MrpFlow({ s, onNavigate }: { s: DashboardSummary; onNavigate: Navigate }) {
+function MrpFlow({ s, forecastWeeks, onNavigate }: { s: DashboardSummary; forecastWeeks: number; onNavigate: Navigate }) {
   const inputs: FlowNode[] = [
-    { view: 'pmp', icon: CalendarRange, title: 'Plan maestro (PMP)', metric: `${s.productCount} productos · ${s.horizon} semanas`, tone: 'ok' },
+    { view: 'pmp', icon: CalendarRange, title: 'Plan maestro (PMP)', metric:
+        `${s.productCount} productos · ${s.horizon} semanas` +
+        (forecastWeeks ? ` (${forecastWeeks} pronosticadas)` : ''),
+      tone: 'ok',
+    },
     { view: 'bom', icon: Network, title: 'Lista de materiales', metric: `${s.bomLineCount} relaciones · ${s.levelCount} niveles`, tone: 'ok' },
     {
       view: 'items',
@@ -223,7 +228,20 @@ function HowTo({ onNavigate }: { onNavigate: Navigate }) {
   );
 }
 
-export function Dashboard({ scenario, result, onNavigate }: { scenario: Scenario; result: MrpResult; onNavigate: Navigate }) {
+export function Dashboard({
+  scenario,
+  result,
+  forecast,
+  emptyWeeks,
+  onNavigate,
+}: {
+  scenario: Scenario;
+  result: MrpResult;
+  forecast: ForecastPlan | null;
+  /** Semanas finales que siguen sin demanda después del pronóstico. */
+  emptyWeeks: WeekRange | null;
+  onNavigate: Navigate;
+}) {
   const blocked = result.issues.some((i) => i.severity === 'error');
 
   if (blocked) {
@@ -251,7 +269,7 @@ export function Dashboard({ scenario, result, onNavigate }: { scenario: Scenario
   const s = dashboardSummary(scenario, result);
   const numbers = numberOrders(result.orders);
   const descriptions = new Map(result.records.map((r) => [r.code, r.description]));
-  const gap = trailingEmptyDemand(scenario);
+  const gap = emptyWeeks;
   const gapAlert: Issue[] = gap
     ? [
         {
@@ -301,7 +319,7 @@ export function Dashboard({ scenario, result, onNavigate }: { scenario: Scenario
       </div>
 
       <Panel title="Flujo del MRP" subtitle="Los datos de entrada alimentan el cálculo, y el cálculo produce los entregables. Hacé clic en cualquier caja.">
-        <MrpFlow s={s} onNavigate={onNavigate} />
+        <MrpFlow s={s} forecastWeeks={forecast ? forecast.to - forecast.from + 1 : 0} onNavigate={onNavigate} />
       </Panel>
 
       <div className="dash-grid">
