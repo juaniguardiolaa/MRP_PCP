@@ -32,10 +32,11 @@ export const PAGE_HELP: Record<ViewId, PageHelp> = {
     steps: [
       'Elegí un ítem de la lista. A la derecha aparece su ficha.',
       'Cargá el stock inicial, el lead time y la política de loteo. Las entregas programadas se cargan semana a semana.',
+      'En Costos cargá el costo unitario, el de pedido y el de mantener (% anual). Son necesarios para las políticas EOQ, LTC y LUC.',
       'La sección Estructura muestra en qué productos se usa el ítem y qué componentes lleva. Hacé clic en uno para abrir su ficha.',
       'Con "Ver explosión MRP" vas directo a la tabla de cálculo del ítem.',
     ],
-    terms: ['LT', 'SS', 'RP', 'L4L', 'LOTE_FIJO', 'COMPRA', 'FABRICACION'],
+    terms: ['LT', 'SS', 'RP', 'L4L', 'LOTE_FIJO', 'EOQ', 'COSTO_MANT'],
   },
   bom: {
     steps: [
@@ -63,6 +64,15 @@ export const PAGE_HELP: Record<ViewId, PageHelp> = {
     ],
     terms: ['NB', 'RP', 'D', 'NN', 'ROP', 'EOP', 'LT'],
   },
+  loteo: {
+    steps: [
+      'Cargá los costos de cada ítem en la tabla, o usá "Cargar costos de la cátedra" para probar con $10, $47 y 26 % anual.',
+      'La comparación calcula, para cada ítem, cuánto cuesta el plan con cada técnica: costo de mantener el inventario más costo de pedir. La celda resaltada es la recomendada: la más económica que no suma órdenes atrasadas al plan (en el ítem o en sus componentes).',
+      'Con "Aplicar" cambiás la política de loteo del ítem y el MRP se recalcula. "Aplicar la recomendada a todos" decide de los productos finales hacia abajo, porque la política de un padre cambia las necesidades de sus componentes.',
+      'Elegí un ítem para ver la fórmula de la EOQ, las tablas de lotes de prueba de LTC y LUC y el costo semana a semana, como en la presentación de la cátedra.',
+    ],
+    terms: ['COSTO_UNIT', 'COSTO_PEDIDO', 'COSTO_MANT', 'EOQ', 'LTC', 'LUC'],
+  },
   ordenes: {
     steps: [
       'Cada barra del diagrama es una orden: empieza en la semana de emisión y termina cuando llega.',
@@ -76,9 +86,10 @@ export const PAGE_HELP: Record<ViewId, PageHelp> = {
     steps: [
       'Cada tarjeta del tablero es una solicitud de compra a emitir a un proveedor; las columnas son la semana en que hay que hacer el pedido.',
       '"Recibir en" (o "Necesaria en" en la tabla) es la semana en que tiene que llegar.',
-      'La cantidad respeta la política de loteo del ítem. La cantidad económica de pedido llega en la próxima etapa.',
+      'La cantidad respeta la política de loteo del ítem. Para pedir la cantidad económica, elegí EOQ, LTC o LUC en la pantalla Cantidad económica de pedido.',
+      'Si los ítems tienen costo unitario, se muestra el importe de cada compra.',
     ],
-    terms: ['COMPRA', 'EOP', 'LOTE_FIJO', 'L4L'],
+    terms: ['COMPRA', 'EOP', 'LOTE_FIJO', 'EOQ'],
   },
   analisis: {
     steps: [

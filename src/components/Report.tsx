@@ -1,21 +1,24 @@
 import { endItems, resolveItemType, usableBomLines } from '../domain/bom';
 import type { ForecastPlan } from '../domain/forecast';
+import { costsComplete } from '../domain/economicLot';
 import { describeLotPolicy } from '../domain/lotSizing';
 import type { MrpResult, Scenario } from '../domain/types';
 import { IS_ARTIFACT } from '../env';
 import { Conclusions, FirstOrdersTable, LeadTimeTable } from './Analysis';
-import { IssueList, TYPE_LABEL, fmt, weekNumbers } from './common';
+import { IssueList, TYPE_LABEL, fmt, fmtDec, fmtMoney, weekNumbers } from './common';
+import { ComparisonTable, CostsTable, useLotComparisons } from './LotSizing';
 import { ForecastLegend, ForecastPanel, forecastCell } from './MpsEditor';
 import { MrpLegend, MrpTable, RequirementsSummaryTable } from './MrpTables';
 import { GanttLegend, OrderGantt, OrdersTable } from './OrderPlan';
 import { LevelTable, TreeGallery, TreeLegend } from './ProductStructure';
-import { EoqNote, PurchaseTotals } from './Purchases';
+import { PurchaseTotals } from './Purchases';
 import { PageHeader } from './shell/PageHeader';
 import { ItemCode } from './ui/Chips';
 import { Panel } from './ui/Panel';
 
 function InputSummary({ scenario, forecast }: { scenario: Scenario; forecast: ForecastPlan | null }) {
   const bom = usableBomLines(scenario.items, scenario.bom);
+  const showCosts = scenario.items.some((i) => i.costs);
   const weeks = weekNumbers(scenario.horizon);
   const receipts = (series: number[]) =>
     series
@@ -98,6 +101,7 @@ function InputSummary({ scenario, forecast }: { scenario: Scenario; forecast: Fo
                   Stock seg.
                 </th>
                 <th scope="col">Política de loteo</th>
+                {showCosts && <th scope="col">Costos (C · S · i)</th>}
               </tr>
             </thead>
             <tbody>
@@ -112,6 +116,13 @@ function InputSummary({ scenario, forecast }: { scenario: Scenario; forecast: Fo
                   <td className="num">{i.leadTime} sem.</td>
                   <td className="num">{fmt(i.safetyStock)}</td>
                   <td>{describeLotPolicy(i.lotPolicy)}</td>
+                  {showCosts && (
+                    <td className="nowrap">
+                      {costsComplete(i.costs)
+                        ? `${fmtMoney(i.costs.unitCost)} · ${fmtMoney(i.costs.orderCost)} · ${fmtDec(i.costs.holdingRate)} %`
+                        : '—'}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -147,6 +158,9 @@ export function Report({
   result: MrpResult;
   forecast: ForecastPlan | null;
 }) {
+  const comparisons = useLotComparisons(scenario, result);
+  const withCosts = result.records.some((r) => comparisons.get(r.code));
+  const analysisNumber = withCosts ? 7 : 6;
   const today = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   return (
     <>
@@ -220,14 +234,35 @@ export function Report({
           <Panel title="Solicitudes de compra" flush>
             <OrdersTable result={result} type="compra" />
           </Panel>
-          <EoqNote />
           <Panel title="Totales por ítem de compra" flush keepTogether>
             <PurchaseTotals result={result} />
           </Panel>
         </section>
 
+        {withCosts && (
+          <section className="report-part">
+            <h2 className="report-title">6. Costos y tamaño de lote</h2>
+            <Panel
+              title="Costos por ítem"
+              subtitle="C = costo unitario ($/u.), S = costo de pedido o preparación ($/orden), i = costo de mantener (% anual). h = C · i / 5200."
+              flush
+              keepTogether
+            >
+              <CostsTable records={result.records} />
+            </Panel>
+            <Panel
+              title="Comparación de técnicas de loteo"
+              subtitle="Costo del horizonte (mantener + pedir) de cada técnica, con las necesidades brutas de este plan. Resaltada, la recomendada: la más económica que no suma órdenes atrasadas."
+              flush
+              keepTogether
+            >
+              <ComparisonTable records={result.records} comparisons={comparisons} />
+            </Panel>
+          </section>
+        )}
+
         <section className="report-part">
-          <h2 className="report-title">6. Análisis técnico y factibilidad</h2>
+          <h2 className="report-title">{analysisNumber}. Análisis técnico y factibilidad</h2>
           <Panel title="Conclusiones" keepTogether>
             <Conclusions scenario={scenario} result={result} />
           </Panel>

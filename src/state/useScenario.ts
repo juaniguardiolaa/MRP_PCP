@@ -2,7 +2,7 @@ import { useEffect, useReducer } from 'react';
 import { ejercicioOct26 } from '../data/ejercicioOct26';
 import { endItems, usableBomLines } from '../domain/bom';
 import { firmDemandWeeks } from '../domain/forecast';
-import type { BomLine, Item, Scenario } from '../domain/types';
+import type { BomLine, Item, ItemCosts, LotPolicy, Scenario } from '../domain/types';
 import { loadStoredScenario, storeScenario } from './scenarioIO';
 
 export type WeekField = 'scheduledReceipts' | 'demand';
@@ -20,6 +20,10 @@ export type ScenarioAction =
   | { type: 'removeBomLine'; index: number }
   | { type: 'setForecastEnabled'; enabled: boolean }
   | { type: 'clearForecastOverrides' }
+  /** Carga los mismos costos en todos los ítems. */
+  | { type: 'setAllCosts'; costs: ItemCosts }
+  /** Cambia la política de loteo de varios ítems a la vez. */
+  | { type: 'setLotPolicies'; policies: Record<string, LotPolicy> }
   | { type: 'load'; scenario: Scenario }
   | { type: 'reset' };
 
@@ -76,6 +80,13 @@ export function scenarioReducer(s: Scenario, a: ScenarioAction): Scenario {
         return { ...i, [a.field]: series };
       });
     }
+    case 'setAllCosts':
+      return { ...s, items: s.items.map((i) => ({ ...i, costs: { ...a.costs } })) };
+    case 'setLotPolicies':
+      return {
+        ...s,
+        items: s.items.map((i) => (a.policies[i.code] ? { ...i, lotPolicy: a.policies[i.code] } : i)),
+      };
     case 'addItem': {
       const code = nextItemCode(s.items);
       const item: Item = {

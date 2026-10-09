@@ -1,4 +1,5 @@
 import {
+  Calculator,
   CalendarRange,
   ChartGantt,
   FileText,
@@ -19,6 +20,7 @@ export type ViewId =
   | 'bom'
   | 'estructura'
   | 'explosion'
+  | 'loteo'
   | 'ordenes'
   | 'compras'
   | 'analisis'
@@ -85,6 +87,13 @@ export const VIEWS: Record<ViewId, ViewDef> = {
     summary: 'Registro MRP semana a semana de cada ítem: necesidades, inventario y órdenes.',
     needsResult: true,
   },
+  loteo: {
+    id: 'loteo',
+    title: 'Cantidad económica de pedido',
+    icon: Calculator,
+    summary: 'Costos de cada ítem y comparación de técnicas de loteo: EOQ, costo total mínimo y costo unitario mínimo.',
+    needsResult: true,
+  },
   ordenes: {
     id: 'ordenes',
     title: 'Plan de órdenes',
@@ -118,7 +127,7 @@ export const VIEWS: Record<ViewId, ViewDef> = {
 export const NAV_GROUPS: NavGroup[] = [
   { id: 'inicio', step: null, title: 'Inicio', views: ['inicio'] },
   { id: 'datos', step: 1, title: 'Datos maestros', views: ['pmp', 'items', 'bom'] },
-  { id: 'planificacion', step: 2, title: 'Planificación', views: ['estructura', 'explosion'] },
+  { id: 'planificacion', step: 2, title: 'Planificación', views: ['estructura', 'explosion', 'loteo'] },
   { id: 'ordenes', step: 3, title: 'Órdenes', views: ['ordenes', 'compras'] },
   { id: 'control', step: 4, title: 'Control', views: ['analisis', 'informe'] },
 ];

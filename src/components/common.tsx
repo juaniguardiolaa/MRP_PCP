@@ -1,4 +1,5 @@
 import { CircleAlert, Info, TriangleAlert } from 'lucide-react';
+import { useState } from 'react';
 import type { Issue, ItemType } from '../domain/types';
 
 interface NumberInputProps {
@@ -27,6 +28,53 @@ export function NumberInput({ value, onChange, label, min = 0, className, id }: 
       onChange={(e) => {
         const raw = e.currentTarget.value;
         const n = raw === '' ? 0 : Number(raw);
+        if (Number.isFinite(n)) onChange(n);
+      }}
+    />
+  );
+}
+
+/**
+ * Campo para importes y porcentajes: acepta coma o punto decimal. Mientras se escribe se
+ * conserva el texto tal cual; vacío equivale a 0.
+ */
+export function DecimalInput({
+  value,
+  onChange,
+  label,
+  className,
+  id,
+}: {
+  value: number | undefined;
+  onChange: (value: number) => void;
+  label: string;
+  className?: string;
+  id?: string;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = draft ?? (value ? String(value).replace('.', ',') : '');
+  const invalid = draft !== null && draft.trim() !== '' && !Number.isFinite(Number(draft.replace(',', '.')));
+  return (
+    <input
+      id={id}
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      className={`num-input ${invalid ? 'invalid' : ''} ${className ?? ''}`}
+      value={shown}
+      placeholder="—"
+      aria-label={label}
+      aria-invalid={invalid}
+      title={label}
+      onFocus={(e) => {
+        setDraft(shown);
+        e.currentTarget.select();
+      }}
+      onBlur={() => setDraft(null)}
+      onChange={(e) => {
+        const raw = e.currentTarget.value;
+        setDraft(raw);
+        const n = raw.trim() === '' ? 0 : Number(raw.replace(',', '.'));
         if (Number.isFinite(n)) onChange(n);
       }}
     />
@@ -77,3 +125,10 @@ export const weekNumbers = (horizon: number) => Array.from({ length: horizon }, 
 
 export const fmt = (n: number) =>
   Number.isInteger(n) ? n.toLocaleString('es-AR') : n.toLocaleString('es-AR', { maximumFractionDigits: 1 });
+
+/** Número con hasta `digits` decimales. */
+export const fmtDec = (n: number, digits = 2) => n.toLocaleString('es-AR', { maximumFractionDigits: digits });
+
+/** Importe en pesos con dos decimales: $ 140,50. */
+export const fmtMoney = (n: number) =>
+  `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

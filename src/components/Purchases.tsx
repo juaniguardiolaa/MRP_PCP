@@ -1,9 +1,9 @@
-import { Info } from 'lucide-react';
+import { ArrowRight, Info } from 'lucide-react';
 import { describeLotPolicy } from '../domain/lotSizing';
 import { orderSummaryByItem } from '../domain/reports';
 import type { MrpResult } from '../domain/types';
 import type { ViewId } from '../navigation';
-import { fmt } from './common';
+import { fmt, fmtMoney } from './common';
 import { OrdersBoard, OrdersViewToggle, useOrdersView } from './OrdersBoard';
 import { OrdersTable } from './OrderPlan';
 import { PageHeader } from './shell/PageHeader';
@@ -13,6 +13,10 @@ import { Panel } from './ui/Panel';
 export function PurchaseTotals({ result }: { result: MrpResult }) {
   const rows = orderSummaryByItem(result).filter((s) => s.type === 'compra');
   const descriptions = new Map(result.records.map((r) => [r.code, r.description]));
+  const unitCosts = new Map(result.records.map((r) => [r.code, r.costs?.unitCost ?? 0]));
+  const priced = rows.some((s) => (unitCosts.get(s.itemCode) ?? 0) > 0);
+  const amount = (code: string, quantity: number) => quantity * (unitCosts.get(code) ?? 0);
+  const totalAmount = rows.reduce((n, s) => n + amount(s.itemCode, s.totalQuantity), 0);
   if (!rows.length) return <p className="muted panel-pad">No hay ítems de compra.</p>;
   return (
     <div className="table-scroll">
@@ -31,6 +35,16 @@ export function PurchaseTotals({ result }: { result: MrpResult }) {
             <th scope="col" className="num">
               Primera cantidad
             </th>
+            {priced && (
+              <>
+                <th scope="col" className="num">
+                  Costo unitario
+                </th>
+                <th scope="col" className="num">
+                  Importe
+                </th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -46,24 +60,46 @@ export function PurchaseTotals({ result }: { result: MrpResult }) {
                 {s.firstReleaseWeek === null ? '—' : `S${s.firstReleaseWeek}`}
               </td>
               <td className="num">{s.orderCount ? fmt(s.firstQuantity) : '—'}</td>
+              {priced && (
+                <>
+                  <td className="num">{unitCosts.get(s.itemCode) ? fmtMoney(unitCosts.get(s.itemCode)!) : '—'}</td>
+                  <td className="num strong">
+                    {unitCosts.get(s.itemCode) ? fmtMoney(amount(s.itemCode, s.totalQuantity)) : '—'}
+                  </td>
+                </>
+              )}
             </tr>
           ))}
         </tbody>
+        {priced && (
+          <tfoot>
+            <tr>
+              <th scope="row" colSpan={7}>
+                Importe total de las compras del horizonte
+              </th>
+              <td className="num total">{fmtMoney(totalAmount)}</td>
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   );
 }
 
-export function EoqNote() {
+export function LotSizingNote({ onOpen }: { onOpen: () => void }) {
   return (
-    <p className="callout">
+    <div className="callout no-print">
       <Info size={16} aria-hidden />
-      <span>
-        <strong>Cantidad económica de pedido:</strong> el cálculo por costos (EOQ, costo total mínimo y costo unitario
-        mínimo) llega en la próxima etapa. Por ahora la cantidad sugerida es la que surge de la política de loteo de cada
-        ítem.
-      </span>
-    </p>
+      <div>
+        <p>
+          <strong>Cantidad económica de pedido:</strong> la cantidad de cada solicitud sale de la política de loteo del ítem.
+          Para pedir la cantidad económica, cargá los costos y compará EOQ, costo total mínimo y costo unitario mínimo.
+        </p>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onOpen}>
+          Ir a Cantidad económica de pedido <ArrowRight size={14} aria-hidden />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -92,7 +128,7 @@ export function Purchases({
           <OrdersTable result={result} type="compra" />
         )}
       </Panel>
-      <EoqNote />
+      <LotSizingNote onOpen={() => onNavigate('loteo')} />
       <Panel title="Totales por ítem de compra" subtitle="Resumen de las compras del horizonte." flush keepTogether>
         <PurchaseTotals result={result} />
       </Panel>
