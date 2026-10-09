@@ -39,7 +39,7 @@ cuatro pasos del MRP:
 | Inicio | Panel de planificación | Indicadores, flujo del MRP con cada caja clickeable, órdenes para emitir en la semana 1, carga de órdenes por semana y alertas. |
 | 1 · Datos maestros | Plan maestro · Ítems e inventario · Lista de materiales | Cargar la demanda de productos finales, la ficha de cada ítem (stock, lead time, loteo, entregas programadas, demanda independiente) y los componentes de cada conjunto. |
 | 2 · Planificación | Estructura de producto · Explosión MRP | Ver los árboles con sus niveles y el registro MRP de cada ítem (NB, RP, D, NN, ROP, EOP). |
-| 3 · Órdenes | Plan de órdenes · Compras sugeridas | Gantt y tabla de órdenes numeradas (OF = fabricación, OC = compra), con filtros; solicitudes de compra por semana. |
+| 3 · Órdenes | Plan de órdenes · Compras sugeridas | Gantt y tablero kanban con una columna por semana de emisión y una tarjeta por orden (OF = fabricación, OC = compra), con filtros y opción de verlo como tabla; solicitudes de compra en el mismo formato. Cada tarjeta abre la explosión MRP del ítem. |
 | 4 · Control | Análisis y alertas · Informe | Respuestas al punto 3 de la consigna, lead times acumulados, alertas e informe imprimible. |
 
 Cada pantalla tiene un panel **"Cómo leer esta pantalla"** con los pasos para usarla. Las siglas (NB, NN,

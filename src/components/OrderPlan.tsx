@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { describeLots } from '../domain/lotSizing';
 import { numberOrders, ordersByReleaseWeek } from '../domain/reports';
 import type { ItemType, MrpResult, PlannedOrder } from '../domain/types';
+import type { ViewId } from '../navigation';
 import { fmt, weekNumbers } from './common';
+import { OrdersBoard, OrdersViewToggle, useOrdersView } from './OrdersBoard';
 import { PageHeader } from './shell/PageHeader';
 import { ItemCode, StatusChip, TypeChip } from './ui/Chips';
 import { Panel } from './ui/Panel';
@@ -167,8 +169,15 @@ export function OrdersTable({
 
 type TypeFilter = 'todas' | ItemType;
 
-export function OrderPlan({ result }: { result: MrpResult }) {
+export function OrderPlan({
+  result,
+  onNavigate,
+}: {
+  result: MrpResult;
+  onNavigate: (view: ViewId, item?: string) => void;
+}) {
   const [type, setType] = useState<TypeFilter>('todas');
+  const [view, setView] = useOrdersView();
   const [item, setItem] = useState('');
   const orders = result.orders.filter((o) => (type === 'todas' || o.type === type) && (!item || o.itemCode === item));
   const count = (t: ItemType) => orders.filter((o) => o.type === t).length;
@@ -213,11 +222,17 @@ export function OrderPlan({ result }: { result: MrpResult }) {
           <>
             Agrupadas por semana de emisión (<Term id="EOP" />
             ). OF = orden de fabricación, OC = orden de compra.
+            {view === 'tablero' && ' Hacé clic en una tarjeta para ver la explosión MRP del ítem.'}
           </>
         }
+        actions={<OrdersViewToggle value={view} onChange={setView} />}
         flush
       >
-        <OrdersTable result={result} orders={orders} />
+        {view === 'tablero' ? (
+          <OrdersBoard result={result} orders={orders} onOpenItem={(code) => onNavigate('explosion', code)} />
+        ) : (
+          <OrdersTable result={result} orders={orders} />
+        )}
       </Panel>
     </>
   );

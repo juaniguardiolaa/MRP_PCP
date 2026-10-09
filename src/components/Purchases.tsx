@@ -2,7 +2,9 @@ import { Info } from 'lucide-react';
 import { describeLotPolicy } from '../domain/lotSizing';
 import { orderSummaryByItem } from '../domain/reports';
 import type { MrpResult } from '../domain/types';
+import type { ViewId } from '../navigation';
 import { fmt } from './common';
+import { OrdersBoard, OrdersViewToggle, useOrdersView } from './OrdersBoard';
 import { OrdersTable } from './OrderPlan';
 import { PageHeader } from './shell/PageHeader';
 import { ItemCode } from './ui/Chips';
@@ -65,7 +67,14 @@ export function EoqNote() {
   );
 }
 
-export function Purchases({ result }: { result: MrpResult }) {
+export function Purchases({
+  result,
+  onNavigate,
+}: {
+  result: MrpResult;
+  onNavigate: (view: ViewId, item?: string) => void;
+}) {
+  const [view, setView] = useOrdersView();
   const purchases = result.orders.filter((o) => o.type === 'compra');
   const units = purchases.reduce((n, o) => n + o.quantity, 0);
   return (
@@ -74,9 +83,14 @@ export function Purchases({ result }: { result: MrpResult }) {
       <Panel
         title="Solicitudes de compra sugeridas"
         subtitle={`${purchases.length} solicitudes por ${fmt(units)} unidades en total, agrupadas por semana de emisión.`}
+        actions={<OrdersViewToggle value={view} onChange={setView} />}
         flush
       >
-        <OrdersTable result={result} type="compra" />
+        {view === 'tablero' ? (
+          <OrdersBoard result={result} type="compra" onOpenItem={(code) => onNavigate('explosion', code)} />
+        ) : (
+          <OrdersTable result={result} type="compra" />
+        )}
       </Panel>
       <EoqNote />
       <Panel title="Totales por ítem de compra" subtitle="Resumen de las compras del horizonte." flush keepTogether>

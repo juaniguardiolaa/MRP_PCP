@@ -67,14 +67,15 @@ export const PAGE_HELP: Record<ViewId, PageHelp> = {
     steps: [
       'Cada barra del diagrama es una orden: empieza en la semana de emisión y termina cuando llega.',
       'Usá los filtros para ver solo compras, solo fabricación o un ítem.',
-      'La tabla numera las órdenes (OF = fabricación, OC = compra) y las agrupa por semana de emisión.',
+      'El tablero tiene una columna por semana de emisión: cada tarjeta es una orden (OF = fabricación, OC = compra) con su cantidad y la semana en que llega. La columna ≤S0 junta las atrasadas.',
+      'Hacé clic en una tarjeta para ver la explosión MRP del ítem. Con "Tabla" volvés a la lista.',
     ],
     terms: ['EOP', 'ROP', 'LT', 'ATRASO'],
   },
   compras: {
     steps: [
-      'Cada fila es una solicitud de compra a emitir a un proveedor.',
-      '"Emitir en" es la semana en que hay que hacer el pedido; "Necesaria en" es cuando tiene que llegar.',
+      'Cada tarjeta del tablero es una solicitud de compra a emitir a un proveedor; las columnas son la semana en que hay que hacer el pedido.',
+      '"Recibir en" (o "Necesaria en" en la tabla) es la semana en que tiene que llegar.',
       'La cantidad respeta la política de loteo del ítem. La cantidad económica de pedido llega en la próxima etapa.',
     ],
     terms: ['COMPRA', 'EOP', 'LOTE_FIJO', 'L4L'],
