@@ -1,5 +1,5 @@
 import { childrenOf, lowLevelCodes, resolveItemType, usableBomLines } from './bom';
-import { applyLotPolicy } from './lotSizing';
+import { applyLotPolicy, effectiveLotPolicy } from './lotSizing';
 import type { Issue, MrpRecord, MrpResult, PlannedOrder, Scenario } from './types';
 import { validateScenario } from './validation';
 
@@ -17,7 +17,8 @@ const byLevelThenCode = (la: number, lb: number, a: string, b: string) =>
  * Para cada ítem, en orden de código de nivel inferior, y para cada semana t:
  *   NB_t  = demanda independiente_t + Σ (EOP_t del padre × coeficiente de uso)
  *   NN_t  = max(0, NB_t + SS − (D_{t−1} + RP_t))            con D_0 = stock inicial
- *   ROP_t = cantidad según la política de loteo (si NN_t > 0)
+ *   ROP_t = cantidad según la política de loteo (si NN_t > 0); EOQ, LTC y LUC usan los costos
+ *           del ítem y, si faltan, se calcula lote por lote
  *   D_t   = D_{t−1} + RP_t + ROP_t − NB_t
  *   EOP_{t−LT} = ROP_t
  *
@@ -45,6 +46,7 @@ export function runMrp(scenario: Scenario): MrpResult {
   for (const item of items) {
     const level = levels[item.code];
     const type = resolveItemType(item, bom);
+    const lotPolicy = effectiveLotPolicy(item);
     const nb = gross.get(item.code)!;
     const rp = toSeries(item.scheduledReceipts, horizon);
     const d = new Array<number>(horizon).fill(0);
@@ -52,6 +54,7 @@ export function runMrp(scenario: Scenario): MrpResult {
     const rop = new Array<number>(horizon).fill(0);
     const eop = new Array<number>(horizon).fill(0);
     let pastDueRelease = 0;
+    const itemOrders: PlannedOrder[] = [];
 
     let onHand = item.initialStock;
     for (let t = 0; t < horizon; t++) {
@@ -59,7 +62,7 @@ export function runMrp(scenario: Scenario): MrpResult {
       const net = Math.max(0, nb[t] + item.safetyStock - available);
       const qty =
         net > 0
-          ? applyLotPolicy(item.lotPolicy, {
+          ? applyLotPolicy(lotPolicy, {
               period: t,
               netRequirement: net,
               grossRequirements: nb,
@@ -67,6 +70,8 @@ export function runMrp(scenario: Scenario): MrpResult {
               projectedOnHand: onHand,
               safetyStock: item.safetyStock,
               horizon,
+              initialStock: item.initialStock,
+              costs: item.costs,
             })
           : 0;
       nn[t] = net;
@@ -80,7 +85,7 @@ export function runMrp(scenario: Scenario): MrpResult {
         const pastDue = releaseWeek < 1;
         if (pastDue) pastDueRelease += qty;
         else eop[releaseWeek - 1] += qty;
-        orders.push({
+        itemOrders.push({
           itemCode: item.code,
           type,
           level,
@@ -88,7 +93,8 @@ export function runMrp(scenario: Scenario): MrpResult {
           releaseWeek,
           receiptWeek,
           pastDue,
-          lotPolicy: item.lotPolicy,
+          lotPolicy,
+          coversThrough: horizon,
         });
         if (pastDue) {
           alerts.push({
@@ -103,6 +109,12 @@ export function runMrp(scenario: Scenario): MrpResult {
         }
       }
     }
+
+    // Cada lote cubre hasta la semana anterior a la próxima recepción planificada.
+    itemOrders.forEach((o, i) => {
+      o.coversThrough = (itemOrders[i + 1]?.receiptWeek ?? horizon + 1) - 1;
+    });
+    orders.push(...itemOrders);
 
     for (const line of childrenOf(bom, item.code)) {
       const childGross = gross.get(line.child)!;
@@ -135,7 +147,7 @@ export function runMrp(scenario: Scenario): MrpResult {
       type,
       leadTime: item.leadTime,
       safetyStock: item.safetyStock,
-      lotPolicy: item.lotPolicy,
+      lotPolicy,
       initialStock: item.initialStock,
       nb,
       rp,
@@ -144,6 +156,7 @@ export function runMrp(scenario: Scenario): MrpResult {
       rop,
       eop,
       pastDueRelease,
+      ...(item.costs ? { costs: item.costs } : {}),
     });
   }
 

@@ -5,6 +5,7 @@ import { BomEditor } from './components/BomEditor';
 import { IssueList } from './components/common';
 import { Dashboard } from './components/Dashboard';
 import { ItemMaster } from './components/ItemMaster';
+import { LotSizing } from './components/LotSizing';
 import { MpsEditor } from './components/MpsEditor';
 import { MrpTables } from './components/MrpTables';
 import { OrderPlan } from './components/OrderPlan';
@@ -136,6 +137,17 @@ export default function App() {
           <MrpTables
             result={result}
             emptyWeeks={emptyWeeks}
+            selected={selectedItem}
+            onSelect={setSelectedItem}
+            onNavigate={navigate}
+          />
+        );
+      case 'loteo':
+        return (
+          <LotSizing
+            scenario={effective}
+            result={result}
+            dispatch={dispatch}
             selected={selectedItem}
             onSelect={setSelectedItem}
             onNavigate={navigate}

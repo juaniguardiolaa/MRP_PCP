@@ -20,9 +20,25 @@ export type ItemTypeSetting = ItemType | 'auto';
 
 export type LotPolicy =
   | { kind: 'L4L' }
-  | { kind: 'FIXED'; lotSize: number };
+  | { kind: 'FIXED'; lotSize: number }
+  /** Cantidad económica de pedido (Economic Order Quantity). */
+  | { kind: 'EOQ' }
+  /** Costo total mínimo (Least Total Cost). */
+  | { kind: 'LTC' }
+  /** Costo unitario mínimo (Least Unit Cost). */
+  | { kind: 'LUC' };
 
 export type LotPolicyKind = LotPolicy['kind'];
+
+/** Costos de un ítem para las técnicas de loteo por costos (EOQ, LTC, LUC). */
+export interface ItemCosts {
+  /** Costo unitario C ($ por unidad). */
+  unitCost: number;
+  /** Costo de pedido o de preparación S ($ por orden). */
+  orderCost: number;
+  /** Costo de mantener i, en % anual del costo unitario (26 = 26 %). */
+  holdingRate: number;
+}
 
 export interface Item {
   code: string;
@@ -44,6 +60,8 @@ export interface Item {
    * al pronóstico pero no cambian la serie con la que se calcula la regresión.
    */
   forecastOverrides?: Record<number, number>;
+  /** Costos para las técnicas de loteo por costos. El ejercicio no los trae. */
+  costs?: ItemCosts;
 }
 
 export interface BomLine {
@@ -80,6 +98,7 @@ export interface MrpRecord {
   eop: number[];
   /** Cantidad que debió emitirse en la semana 0 o antes (orden atrasada). */
   pastDueRelease: number;
+  costs?: ItemCosts;
 }
 
 export interface PlannedOrder {
@@ -93,6 +112,8 @@ export interface PlannedOrder {
   receiptWeek: number;
   pastDue: boolean;
   lotPolicy: LotPolicy;
+  /** Última semana cuyas necesidades cubre el lote (la anterior a la próxima recepción planificada). */
+  coversThrough: number;
 }
 
 export type Severity = 'error' | 'warning' | 'info';

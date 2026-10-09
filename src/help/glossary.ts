@@ -20,7 +20,13 @@ export type GlossaryId =
   | 'COMPRA'
   | 'FABRICACION'
   | 'PRONOSTICO'
-  | 'R2';
+  | 'R2'
+  | 'COSTO_UNIT'
+  | 'COSTO_PEDIDO'
+  | 'COSTO_MANT'
+  | 'EOQ'
+  | 'LTC'
+  | 'LUC';
 
 export interface GlossaryEntry {
   id: GlossaryId;
@@ -208,6 +214,58 @@ const entries: GlossaryEntry[] = [
     name: 'Ítem de fabricación',
     definition:
       'Ítem que se produce en planta a partir de sus componentes. Sus órdenes son órdenes de fabricación.',
+  },
+  {
+    id: 'COSTO_UNIT',
+    abbr: 'C',
+    name: 'Costo unitario',
+    definition:
+      'Lo que cuesta comprar o fabricar una unidad del ítem. Se usa para calcular el costo de mantener y el importe de las compras.',
+    example: 'En el ejemplo de la cátedra, $10 por unidad.',
+  },
+  {
+    id: 'COSTO_PEDIDO',
+    abbr: 'S',
+    name: 'Costo de pedido o de preparación',
+    definition:
+      'Costo fijo de cada orden, sin importar la cantidad: emitir y recibir una compra, o preparar la máquina para una tanda de fabricación. Cuantas menos órdenes, menos se gasta en este concepto.',
+    example: 'En el ejemplo de la cátedra, $47 por orden.',
+  },
+  {
+    id: 'COSTO_MANT',
+    abbr: 'i',
+    name: 'Costo de mantener el inventario',
+    definition:
+      'Lo que cuesta tener stock guardado (capital inmovilizado, depósito, seguros, obsolescencia), como % anual del costo unitario. Cuanto más grande el lote, más inventario queda y más se paga en este concepto. Se cobra sobre el inventario al cierre de cada semana (D).',
+    formula: 'H = C × i / 100 (por unidad y año)   h = H / 52 (por unidad y semana)',
+    example: 'Con C = $10 e i = 26 % anual: H = $2,60 y h = $0,05 (el 0,5 % semanal de la cátedra).',
+  },
+  {
+    id: 'EOQ',
+    abbr: 'EOQ',
+    name: 'Cantidad económica de pedido',
+    definition:
+      'Tamaño de lote fijo que equilibra el costo de pedir con el de mantener, si la demanda fuera pareja. La demanda anual se estima con el promedio semanal de las necesidades netas del horizonte. Como en MRP la demanda varía semana a semana, no siempre es la técnica más barata.',
+    formula: 'EOQ = √(2 · D · S / H)   con D = demanda anual',
+    example: 'Cátedra: D = 525 u. en 8 semanas × 52 = 3.412,5 u./año; EOQ = √(2 × 3.412,5 × 47 / 2,60) ≈ 351 u.',
+  },
+  {
+    id: 'LTC',
+    abbr: 'LTC',
+    name: 'Costo total mínimo',
+    definition:
+      'Prueba lotes que cubren 1, 2, 3… semanas y elige aquel en que el costo de mantener se parece más al costo de pedir. Las unidades de la semana j se mantienen (j − semana del pedido) semanas.',
+    formula: 'Se elige el lote con la menor diferencia |costo de mantener − S|',
+    example: 'Cátedra: pedir en S1 para S1–S5 (335 u.) cuesta $38 de mantener contra $47 de pedir: se elige ese lote.',
+  },
+  {
+    id: 'LUC',
+    abbr: 'LUC',
+    name: 'Costo unitario mínimo',
+    definition:
+      'Prueba lotes que cubren 1, 2, 3… semanas y elige el que tiene el menor costo por unidad: costo de mantener más costo de pedir, dividido la cantidad del lote.',
+    formula: 'Costo unitario = (costo de mantener + S) / cantidad',
+    example: 'Cátedra: S1–S6 (410 u.) cuesta $0,2530 por unidad, el mínimo; S1–S7 ya sube a $0,2590.',
   },
 ];
 

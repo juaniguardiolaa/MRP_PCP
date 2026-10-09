@@ -1,4 +1,4 @@
-import type { BomLine, Item, ItemTypeSetting, LotPolicy, Scenario } from '../domain/types';
+import type { BomLine, Item, ItemCosts, ItemTypeSetting, LotPolicy, Scenario } from '../domain/types';
 import { MAX_HORIZON } from '../domain/validation';
 
 const num = (v: unknown, fallback = 0): number =>
@@ -11,7 +11,14 @@ const ITEM_TYPES: ItemTypeSetting[] = ['auto', 'compra', 'fabricacion'];
 function parseLotPolicy(v: unknown): LotPolicy {
   const p = v as { kind?: unknown; lotSize?: unknown } | null;
   if (p?.kind === 'FIXED') return { kind: 'FIXED', lotSize: num(p.lotSize, 1) };
+  if (p?.kind === 'EOQ' || p?.kind === 'LTC' || p?.kind === 'LUC') return { kind: p.kind };
   return { kind: 'L4L' };
+}
+
+function parseCosts(v: unknown): ItemCosts | undefined {
+  if (typeof v !== 'object' || v === null) return undefined;
+  const o = v as Record<string, unknown>;
+  return { unitCost: num(o.unitCost), orderCost: num(o.orderCost), holdingRate: num(o.holdingRate) };
 }
 
 function parseOverrides(v: unknown): Record<number, number> | undefined {
@@ -27,6 +34,7 @@ function parseItem(v: unknown, index: number): Item {
   const o = v as Record<string, unknown>;
   if (typeof o.code !== 'string') throw new Error(`El ítem #${index + 1} no tiene código.`);
   const overrides = parseOverrides(o.forecastOverrides);
+  const costs = parseCosts(o.costs);
   return {
     code: o.code,
     description: typeof o.description === 'string' ? o.description : '',
@@ -38,6 +46,7 @@ function parseItem(v: unknown, index: number): Item {
     scheduledReceipts: numArray(o.scheduledReceipts),
     demand: numArray(o.demand),
     ...(overrides ? { forecastOverrides: overrides } : {}),
+    ...(costs ? { costs } : {}),
   };
 }
 

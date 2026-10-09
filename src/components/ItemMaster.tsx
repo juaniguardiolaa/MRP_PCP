@@ -2,13 +2,15 @@ import { ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { useState, type Dispatch, type ReactNode } from 'react';
 import { childrenOf, endItems, parentsOf, resolveItemType, usableBomLines } from '../domain/bom';
 import type { ForecastPlan } from '../domain/forecast';
-import { describeLotPolicy } from '../domain/lotSizing';
+import { annualHoldingCost, costsComplete, holdingCostPerWeek, withCost } from '../domain/economicLot';
+import { eoqForRecord } from '../domain/lotComparison';
+import { describeLotPolicy, isEconomicKind, lotSizingRules } from '../domain/lotSizing';
 import { orderSummaryByItem } from '../domain/reports';
-import type { Item, ItemTypeSetting, MrpResult, Scenario } from '../domain/types';
+import type { Item, ItemCosts, ItemTypeSetting, LotPolicyKind, MrpResult, Scenario } from '../domain/types';
 import type { GlossaryId } from '../help/glossary';
 import type { ViewId } from '../navigation';
 import { nextItemCode, type ScenarioAction } from '../state/useScenario';
-import { IssueList, NumberInput, TYPE_LABEL, fmt } from './common';
+import { DecimalInput, IssueList, NumberInput, TYPE_LABEL, fmt, fmtDec, fmtMoney } from './common';
 import { ConfirmButton } from './ConfirmButton';
 import { forecastCell } from './MpsEditor';
 import { PageHeader } from './shell/PageHeader';
@@ -116,6 +118,10 @@ function ItemSheet({
   const update = (patch: Partial<Omit<Item, 'code'>>) => dispatch({ type: 'updateItem', code: item.code, patch });
   const codes = new Set(scenario.items.map((i) => i.code));
   const lot = item.lotPolicy;
+  const costs = item.costs;
+  const complete = costsComplete(costs);
+  const eoq = lot.kind === 'EOQ' && record ? eoqForRecord(record, scenario.horizon) : null;
+  const setCost = (field: keyof ItemCosts, value: number) => update({ costs: withCost(costs, field, value) });
 
   return (
     <div className="sheet">
@@ -230,26 +236,41 @@ function ItemSheet({
             </Field>
             <Field
               label="Política de loteo"
+              htmlFor="item-lot-policy"
               help={
-                lot.kind === 'L4L'
-                  ? 'Pide exactamente la necesidad neta de cada semana.'
-                  : 'Pide múltiplos del tamaño de lote: si falta más que un lote, pide varios.'
+                <>
+                  {lotSizingRules[lot.kind].help}
+                  {eoq && (
+                    <>
+                      {' '}
+                      <strong>EOQ calculada: {fmt(eoq.quantity)} u.</strong>
+                    </>
+                  )}
+                </>
               }
             >
               <div className="lot-field">
-                <SegmentedControl<'L4L' | 'FIXED'>
-                  label="Política de loteo"
+                <select
+                  id="item-lot-policy"
                   value={lot.kind}
-                  onChange={(v) =>
+                  onChange={(e) => {
+                    const kind = e.currentTarget.value as LotPolicyKind;
                     update({
-                      lotPolicy: v === 'FIXED' ? { kind: 'FIXED', lotSize: lot.kind === 'FIXED' ? lot.lotSize : 50 } : { kind: 'L4L' },
-                    })
-                  }
-                  options={[
-                    { value: 'L4L', label: 'Lote por lote' },
-                    { value: 'FIXED', label: 'Lote fijo' },
-                  ]}
-                />
+                      lotPolicy:
+                        kind === 'FIXED' ? { kind: 'FIXED', lotSize: lot.kind === 'FIXED' ? lot.lotSize : 50 } : { kind },
+                    });
+                  }}
+                >
+                  <optgroup label="Sin costos">
+                    <option value="L4L">{lotSizingRules.L4L.label}</option>
+                    <option value="FIXED">{lotSizingRules.FIXED.label}</option>
+                  </optgroup>
+                  <optgroup label="Por costos">
+                    <option value="EOQ">{lotSizingRules.EOQ.label}</option>
+                    <option value="LTC">{lotSizingRules.LTC.label}</option>
+                    <option value="LUC">{lotSizingRules.LUC.label}</option>
+                  </optgroup>
+                </select>
                 {lot.kind === 'FIXED' && (
                   <WithUnit unit="u. por lote">
                     <NumberInput
@@ -262,6 +283,64 @@ function ItemSheet({
                   </WithUnit>
                 )}
               </div>
+              {isEconomicKind(lot.kind) && !complete && (
+                <p className="field-error">
+                  Faltan costos: mientras no cargues C, S e i en el panel Costos, el MRP calcula lote por lote.
+                </p>
+              )}
+            </Field>
+          </div>
+        </Panel>
+
+        <Panel
+          title="Costos"
+          subtitle="Se usan en las técnicas de loteo por costos (EOQ, LTC y LUC) y para valorizar las compras."
+          actions={
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onNavigate('loteo', item.code)}>
+              Comparar técnicas <ArrowRight size={14} aria-hidden />
+            </button>
+          }
+          className="span-2"
+        >
+          <div className="form-grid form-grid-3" id="item-costs">
+            <Field label="Costo unitario" term="COSTO_UNIT" htmlFor="item-cost-unit" help="Lo que cuesta una unidad.">
+              <WithUnit unit="$ / u.">
+                <DecimalInput id="item-cost-unit" label="Costo unitario" value={costs?.unitCost} onChange={(v) => setCost('unitCost', v)} />
+              </WithUnit>
+            </Field>
+            <Field
+              label={type === 'compra' ? 'Costo de pedido' : 'Costo de preparación'}
+              term="COSTO_PEDIDO"
+              htmlFor="item-cost-order"
+              help={type === 'compra' ? 'Costo fijo de emitir cada orden de compra.' : 'Costo fijo de preparar cada tanda de fabricación.'}
+            >
+              <WithUnit unit="$ / orden">
+                <DecimalInput
+                  id="item-cost-order"
+                  label={type === 'compra' ? 'Costo de pedido' : 'Costo de preparación'}
+                  value={costs?.orderCost}
+                  onChange={(v) => setCost('orderCost', v)}
+                />
+              </WithUnit>
+            </Field>
+            <Field
+              label="Costo de mantener"
+              term="COSTO_MANT"
+              htmlFor="item-cost-holding"
+              help={
+                complete
+                  ? `h = ${fmtMoney(holdingCostPerWeek(costs))} por u. y semana · H = ${fmtMoney(annualHoldingCost(costs))} por u. y año (${fmtDec(costs.holdingRate / 52, 3)} % semanal).`
+                  : 'Porcentaje anual del costo unitario. En el ejemplo de la cátedra, 26 % (0,5 % por semana).'
+              }
+            >
+              <WithUnit unit="% anual">
+                <DecimalInput
+                  id="item-cost-holding"
+                  label="Costo de mantener (% anual)"
+                  value={costs?.holdingRate}
+                  onChange={(v) => setCost('holdingRate', v)}
+                />
+              </WithUnit>
             </Field>
           </div>
         </Panel>

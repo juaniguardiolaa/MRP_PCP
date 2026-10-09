@@ -20,6 +20,7 @@ const ctx = (netRequirement: number) => ({
   projectedOnHand: 0,
   safetyStock: 0,
   horizon: 1,
+  initialStock: 0,
 });
 
 describe('políticas de loteo', () => {

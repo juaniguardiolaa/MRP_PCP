@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { describeLots } from '../domain/lotSizing';
+import { describeOrderLot } from '../domain/lotSizing';
 import { numberOrders, ordersByReleaseWeek } from '../domain/reports';
 import type { ItemType, MrpResult, PlannedOrder } from '../domain/types';
 import type { ViewId } from '../navigation';
@@ -68,9 +68,8 @@ export function OrderGantt({ result, orders = result.orders }: { result: MrpResu
                 />
               ))}
               {bars.map(({ order: o, start, end, lane }) => {
-                const lots = describeLots(o.lotPolicy, o.quantity);
                 const title =
-                  `${numbers.get(o)} · ${o.itemCode}: ${fmt(o.quantity)} u.${lots ? ` (${lots})` : ''} – ` +
+                  `${numbers.get(o)} · ${o.itemCode}: ${fmt(o.quantity)} u. (${describeOrderLot(o)}) – ` +
                   `emitir en S${o.releaseWeek}, recibir en S${o.receiptWeek}` +
                   (o.pastDue ? ' – ATRASADA' : '');
                 return (
@@ -153,7 +152,7 @@ export function OrdersTable({
                   </td>
                 )}
                 <td className="num strong">{fmt(o.quantity)}</td>
-                <td className="num">{describeLots(o.lotPolicy, o.quantity) ?? 'L4L'}</td>
+                <td className="num">{describeOrderLot(o)}</td>
                 <td>S{o.receiptWeek}</td>
                 <td>
                   {o.pastDue ? <StatusChip tone="critical">Atrasada</StatusChip> : <StatusChip tone="ok">A tiempo</StatusChip>}

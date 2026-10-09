@@ -1,4 +1,6 @@
 import { findCycle } from './bom';
+import { costsComplete } from './economicLot';
+import { isEconomicKind, lotSizingRules } from './lotSizing';
 import type { Issue, Scenario } from './types';
 
 export const MAX_HORIZON = 52;
@@ -29,6 +31,17 @@ export function validateScenario(s: Scenario): Issue[] {
     if (item.safetyStock < 0) err(`${c}: el stock de seguridad no puede ser negativo.`, c);
     if (item.lotPolicy.kind === 'FIXED' && !(item.lotPolicy.lotSize > 0)) {
       err(`${c}: el tamaño del lote fijo debe ser mayor que 0.`, c);
+    }
+    const costs = item.costs;
+    if (costs && (costs.unitCost < 0 || costs.orderCost < 0 || costs.holdingRate < 0)) {
+      err(`${c}: los costos no pueden ser negativos.`, c);
+    }
+    if (isEconomicKind(item.lotPolicy.kind) && !costsComplete(costs)) {
+      warn(
+        `${c}: la política ${lotSizingRules[item.lotPolicy.kind].short} necesita costo unitario, costo de pedido y ` +
+          '% de mantener. Mientras falten, se calcula lote por lote.',
+        c,
+      );
     }
     if (item.scheduledReceipts.some((v) => v < 0) || item.demand.some((v) => v < 0)) {
       err(`${c}: hay cantidades semanales negativas.`, c);

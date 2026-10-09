@@ -6,12 +6,14 @@ del inventario, hace la explosión de necesidades y entrega:
 
 - la **tabla MRP de cada ítem** con la notación de la cátedra (NB, RP, D, NN, ROP, EOP);
 - un **diagrama de pedidos** que indica qué pedir, cuánto y en qué semana emitir y recibir cada orden;
-- una **sugerencia de compras** por semana para los ítems de abastecimiento externo;
+- una **sugerencia de compras** por semana para los ítems de abastecimiento externo, con su importe si se cargan costos;
+- la **cantidad económica de pedido**: con los costos de cada ítem compara lote por lote, lote fijo, EOQ, costo total
+  mínimo (LTC) y costo unitario mínimo (LUC), y recomienda la más económica que no deja órdenes atrasadas;
 - el **análisis de factibilidad**: primeras órdenes de materias primas, lead times acumulados y órdenes atrasadas;
 - un **informe imprimible** (A4 apaisado) que se puede guardar como PDF.
 
 Todos los datos se pueden editar y los resultados se recalculan al instante: stock inicial, entregas
-programadas, lead time, política de loteo, stock de seguridad, plan maestro, horizonte y la propia BOM.
+programadas, lead time, política de loteo, costos, stock de seguridad, plan maestro, horizonte y la propia BOM.
 
 ## Uso
 
@@ -38,7 +40,7 @@ cuatro pasos del MRP:
 | --- | --- | --- |
 | Inicio | Panel de planificación | Indicadores, flujo del MRP con cada caja clickeable, órdenes para emitir en la semana 1, carga de órdenes por semana y alertas. |
 | 1 · Datos maestros | Plan maestro · Ítems e inventario · Lista de materiales | Cargar la demanda de productos finales, la ficha de cada ítem (stock, lead time, loteo, entregas programadas, demanda independiente) y los componentes de cada conjunto. |
-| 2 · Planificación | Estructura de producto · Explosión MRP | Ver los árboles con sus niveles y el registro MRP de cada ítem (NB, RP, D, NN, ROP, EOP). |
+| 2 · Planificación | Estructura de producto · Explosión MRP · Cantidad económica de pedido | Ver los árboles con sus niveles y el registro MRP de cada ítem (NB, RP, D, NN, ROP, EOP). Cargar los costos y comparar las técnicas de loteo por costos. |
 | 3 · Órdenes | Plan de órdenes · Compras sugeridas | Gantt y tablero kanban con una columna por semana de emisión y una tarjeta por orden (OF = fabricación, OC = compra), con filtros y opción de verlo como tabla; solicitudes de compra en el mismo formato. Cada tarjeta abre la explosión MRP del ítem. |
 | 4 · Control | Análisis y alertas · Informe | Respuestas al punto 3 de la consigna, lead times acumulados, alertas e informe imprimible. |
 
@@ -79,6 +81,60 @@ El motor está en [`src/domain/mrpEngine.ts`](src/domain/mrpEngine.ts).
    - **L4L (lote por lote):** se pide exactamente la necesidad neta.
    - **Lote fijo Q:** se pide ⌈NN/Q⌉ × Q. Si la necesidad supera el lote, se piden varios lotes; por
      ejemplo, D necesita 310 en S6 y se piden 4 × 100.
+   - **EOQ, LTC y LUC:** técnicas por costos, explicadas en la sección siguiente.
+
+### Cantidad económica de pedido
+
+Las técnicas por costos están en [`src/domain/economicLot.ts`](src/domain/economicLot.ts) y la comparación en
+[`src/domain/lotComparison.ts`](src/domain/lotComparison.ts). Cada ítem lleva tres costos, que se cargan en su ficha o en
+la pantalla **Cantidad económica de pedido**:
+
+| Costo | Significado |
+| --- | --- |
+| C | costo unitario ($/u.) |
+| S | costo de pedido (compras) o de preparación (fabricación), $ por orden |
+| i | costo de mantener, % anual de C. H = C·i/100 por unidad y año; h = H/52 por unidad y semana |
+
+El ejercicio no trae costos. El botón **Cargar costos de la cátedra** pone en todos los ítems los del ejemplo de la
+presentación: C = $10, S = $47, i = 26 % anual (0,5 % semanal, h = $0,05).
+
+Para decidir un lote en la semana t se usan las necesidades netas que quedarían pidiendo lote por lote desde t; las
+unidades de la semana j se mantienen (j − t) semanas.
+
+- **EOQ:** D = promedio semanal de las necesidades netas del horizonte × 52; EOQ = √(2·D·S/H), redondeada. Cada vez
+  que hay necesidad neta se pide la EOQ, o la necesidad neta si es mayor.
+- **Costo total mínimo (LTC):** se prueban lotes que cubren 1, 2, 3… semanas y se elige aquel en que el costo de mantener
+  es más parecido a S. Se deja de probar en el primer lote en que mantener alcanza a S. En un empate, el lote más chico.
+- **Costo unitario mínimo (LUC):** se elige el lote con el menor (mantener + S) / cantidad. Se deja de probar cuando el
+  costo unitario sube. En un empate, el lote más chico.
+- **Fin del horizonte:** un lote nunca cubre semanas posteriores al horizonte, y el sobrante de una EOQ al final paga
+  mantener solo dentro del horizonte (el mismo criterio que la cátedra).
+- **Sin costos:** si un ítem tiene EOQ, LTC o LUC pero le falta alguno de los tres costos, el MRP lo calcula lote por lote
+  y avisa.
+
+Con el ejemplo de la cátedra (necesidades netas 50, 60, 70, 60, 95, 75, 60, 55) la app reproduce las tablas de la
+presentación:
+
+| Técnica | Lotes | Costo total |
+| --- | --- | --- |
+| L4L | uno por semana | $376 |
+| LTC | 335 en S1 y 190 en S6 | $140,50 |
+| LUC | 410 en S1 y 115 en S7 | $153,50 |
+| EOQ | 351 en S1 y en S6 | $171,05 |
+
+**Comparación:** el costo de cada técnica se calcula con el mismo motor MRP, sobre el ítem solo y con sus necesidades
+brutas actuales.
+
+- **Costo de mantener:** se cobra sobre el inventario al cierre de cada semana (fila D). Así incluye el stock que ya
+  existe, que pesa igual en todas las técnicas y la pantalla lo informa aparte.
+- **Costo de pedir:** S por cada semana con recepción planificada.
+- **Ítems con componentes:** la política de un padre cambia las necesidades de sus componentes, así que la comparación
+  vale para el plan actual. Por eso **Aplicar la recomendada a todos** decide de arriba hacia abajo: primero los
+  productos finales, después cada nivel con las necesidades que generan sus padres.
+- **Recomendada:** la técnica más económica que no suma unidades a las órdenes atrasadas del plan. Se cuentan las del
+  ítem y las de todo el plan, porque un lote grande de un padre puede dejar atrasados a sus componentes. En el ejercicio,
+  pedir A con LUC es lo más barato para A, pero adelanta tanto las necesidades de C, D y E que sus órdenes quedan
+  atrasadas: la comparación lo marca y no lo recomienda.
 
 ### Pronóstico de demanda
 
@@ -162,7 +218,4 @@ cada push y pull request. En la rama `main` además publica la app. Para activar
 
 ## Próximas etapas
 
-- **Cantidad económica de pedido:** EOQ, costo total mínimo (LTC) y costo unitario mínimo (LUC). Requiere
-  cargar el costo unitario, el costo de pedido y el costo de mantenimiento. El motor ya recibe la política de
-  loteo como estrategia, así que alcanza con agregar las nuevas reglas en `lotSizing.ts`.
 - **Capacidad necesaria vs. capacidad instalada (CRP).**

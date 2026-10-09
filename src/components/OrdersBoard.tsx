@@ -1,6 +1,6 @@
 import { ArrowRight, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
-import { describeLots } from '../domain/lotSizing';
+import { describeOrderLot } from '../domain/lotSizing';
 import { numberOrders, ordersByReleaseWeek } from '../domain/reports';
 import type { ItemType, MrpResult, PlannedOrder } from '../domain/types';
 import { fmt, weekNumbers } from './common';
@@ -56,7 +56,6 @@ function OrderCard({
   description: string;
   onOpen: () => void;
 }) {
-  const lots = describeLots(order.lotPolicy, order.quantity);
   const leadTime = order.receiptWeek - order.releaseWeek;
   return (
     <button
@@ -75,7 +74,7 @@ function OrderCard({
       </span>
       <span className="order-card-qty">
         <strong>{fmt(order.quantity)} u.</strong>
-        <span>{lots ?? 'L4L'}</span>
+        <span>{describeOrderLot(order)}</span>
       </span>
       {order.pastDue ? (
         <StatusChip tone="critical">
