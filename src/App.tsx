@@ -142,9 +142,9 @@ export default function App() {
           />
         );
       case 'ordenes':
-        return <OrderPlan result={result} />;
+        return <OrderPlan result={result} onNavigate={navigate} />;
       case 'compras':
-        return <Purchases result={result} />;
+        return <Purchases result={result} onNavigate={navigate} />;
       case 'analisis':
         return <Analysis scenario={effective} result={result} />;
       case 'informe':
